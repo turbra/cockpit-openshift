@@ -61,7 +61,17 @@ PERFORMANCE_DOMAINS = {
 GUEST_PRIMARY_INTERFACE = "eth0"
 
 
+def enforce_runtime_permissions() -> None:
+    for path in [STATE_DIR, SECRET_DIR, RUNTIME_HOME_DIR, RUNTIME_CACHE_DIR, WORK_ROOT]:
+        if path.exists():
+            path.chmod(0o700)
+    for path in [STATE_FILE, REQUEST_FILE, LOG_FILE]:
+        if path.exists():
+            path.chmod(0o600)
+
+
 def load_state() -> dict:
+    enforce_runtime_permissions()
     if not STATE_FILE.exists():
         return {}
     data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
@@ -78,8 +88,8 @@ def load_state() -> dict:
 
 
 def save_state(data: dict) -> None:
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    ensure_private_dir(STATE_DIR)
+    write_private_file(STATE_FILE, json.dumps(data, indent=2, sort_keys=True))
 
 
 def clear_runtime_state() -> None:
@@ -89,9 +99,28 @@ def clear_runtime_state() -> None:
         shutil.rmtree(SECRET_DIR)
 
 
+def ensure_private_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    path.chmod(0o700)
+
+
+def write_private_file(path: Path, content: str) -> None:
+    ensure_private_dir(path.parent)
+    path.write_text(content, encoding="utf-8")
+    path.chmod(0o600)
+
+
+def append_private_line(path: Path, line: str) -> None:
+    ensure_private_dir(path.parent)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line.rstrip() + "\n")
+    path.chmod(0o600)
+
+
 def ensure_runtime_dirs() -> None:
     for path in [STATE_DIR, SECRET_DIR, RUNTIME_HOME_DIR, RUNTIME_CACHE_DIR, WORK_ROOT]:
-        path.mkdir(parents=True, exist_ok=True)
+        ensure_private_dir(path)
+    enforce_runtime_permissions()
 
 
 def run(*argv: str, check: bool = True, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -125,8 +154,7 @@ def runtime_env() -> dict:
 
 def log_line(message: str) -> None:
     ensure_runtime_dirs()
-    with LOG_FILE.open("a", encoding="utf-8") as handle:
-        handle.write(message.rstrip() + "\n")
+    append_private_line(LOG_FILE, message)
 
 
 def log_step(message: str) -> None:
@@ -374,6 +402,15 @@ def secret_material(request: dict) -> tuple[str, str]:
     )
 
 
+def read_optional_file(path_str: str) -> str:
+    if not path_str:
+        return ""
+    path = Path(path_str)
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
 def derive_request_paths(request: dict) -> dict:
     cluster_id = f"{request['clusterName']}.{request['baseDomain']}"
     work_dir = WORK_ROOT / cluster_id
@@ -616,8 +653,9 @@ def ensure_installer_binaries(request: dict, paths: dict) -> None:
         return
 
     log_step(f"Ensuring OpenShift installer binaries for {request['openshiftRelease']}")
-    paths["downloadsDir"].mkdir(parents=True, exist_ok=True)
-    paths["binDir"].mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(paths["workDir"])
+    ensure_private_dir(paths["downloadsDir"])
+    ensure_private_dir(paths["binDir"])
 
     installer_archive = paths["downloadsDir"] / f"openshift-install-linux-{request['openshiftRelease']}.tar.gz"
     client_archive = paths["downloadsDir"] / f"openshift-client-linux-{request['openshiftRelease']}.tar.gz"
@@ -677,11 +715,14 @@ def remove_disk(path: str) -> None:
             raise RuntimeError(f"Failed to remove disk {path}: {exc}") from exc
 
 
-def cleanup_previous_install(request: dict, paths: dict, nodes: list[dict]) -> None:
+def cleanup_previous_install(request: dict, paths: dict) -> None:
     log_step("Cleaning previous cluster state")
-    for node in nodes:
-        destroy_domain(f"{node['name']}.{request['clusterName']}.{request['baseDomain']}")
-        remove_disk(node["diskPath"])
+    cluster_id = f"{request['clusterName']}.{request['baseDomain']}"
+    for domain in cluster_domains(cluster_id):
+        disk_paths = domain_disk_paths(domain)
+        destroy_domain(domain)
+        for disk_path in disk_paths:
+            remove_disk(disk_path)
     paths["hypervisorIso"].unlink(missing_ok=True)
     if paths["workDir"].exists():
         shutil.rmtree(paths["workDir"])
@@ -807,9 +848,10 @@ def verify_domain_boot_media(request: dict, nodes: list[dict], paths: dict) -> N
 def render_install_artifacts(request: dict, nodes: list[dict], paths: dict) -> None:
     if paths["installDir"].exists():
         shutil.rmtree(paths["installDir"])
-    paths["installDir"].mkdir(parents=True, exist_ok=True)
-    (paths["installDir"] / "install-config.yaml").write_text(render_install_config(request, nodes), encoding="utf-8")
-    (paths["installDir"] / "agent-config.yaml").write_text(render_agent_config(request, nodes), encoding="utf-8")
+    ensure_private_dir(paths["workDir"])
+    ensure_private_dir(paths["installDir"])
+    write_private_file(paths["installDir"] / "install-config.yaml", render_install_config(request, nodes))
+    write_private_file(paths["installDir"] / "agent-config.yaml", render_agent_config(request, nodes))
 
 
 def generate_agent_iso(paths: dict) -> None:
@@ -1168,7 +1210,13 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
             # allowed, job will start it
             pass
 
-    for binary in ["systemd-run", "virsh", "virt-install", "virt-xml", "qemu-img", "lvcreate", "lvremove"]:
+    required_binaries = ["systemd-run", "virsh", "virt-install", "virt-xml"]
+    if pool and pool["type"] == "dir":
+        required_binaries.append("qemu-img")
+    if pool and pool["type"] == "logical":
+        required_binaries.extend(["lvcreate", "lvremove"])
+
+    for binary in required_binaries:
         try:
             run(binary, "--version", check=True)
         except Exception:
@@ -1214,8 +1262,8 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
             "sshPublicKeyFile": ssh_public_key_file,
         },
         "secretMaterial": {
-            "pullSecret": pull_secret_value if pull_secret_value else Path(pull_secret_file).read_text(encoding="utf-8").strip(),
-            "sshPublicKey": ssh_public_key_value if ssh_public_key_value else Path(ssh_public_key_file).read_text(encoding="utf-8").strip(),
+            "pullSecret": pull_secret_value if pull_secret_value else read_optional_file(pull_secret_file),
+            "sshPublicKey": ssh_public_key_value if ssh_public_key_value else read_optional_file(ssh_public_key_file),
         },
     }
     if pool:
@@ -1292,8 +1340,8 @@ def handle_start(payload_b64: str, mode: str) -> int:
     clear_runtime_state()
     ensure_runtime_dirs()
     request = materialize_secret_files(request)
-    LOG_FILE.write_text("", encoding="utf-8")
-    REQUEST_FILE.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    write_private_file(LOG_FILE, "")
+    write_private_file(REQUEST_FILE, json.dumps(request, indent=2, sort_keys=True))
 
     unit_name = f"cockpit-assisted-installer-local-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = record_request_summary(request, mode, unit_name)
@@ -1339,7 +1387,7 @@ def run_install_job(mode: str, unit_name: str) -> int:
     rc = 0
     try:
         if mode == "redeploy":
-            cleanup_previous_install(request, paths, nodes)
+            cleanup_previous_install(request, paths)
 
         ensure_installer_binaries(request, paths)
         ensure_pool_active(pool)
@@ -1487,7 +1535,7 @@ def handle_destroy(cluster_id: str) -> int:
     cluster = clusters[cluster_id]
     clear_runtime_state()
     ensure_runtime_dirs()
-    LOG_FILE.write_text("", encoding="utf-8")
+    write_private_file(LOG_FILE, "")
     unit_name = f"cockpit-assisted-installer-local-destroy-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = {
         "schema": STATE_SCHEMA,
