@@ -1,1 +1,3 @@
 rpmbuild/
+__pycache__/
+*.pyc

@@ -3,6 +3,12 @@
 `cockpit-openshift` is a Cockpit-hosted local OpenShift installer for one
 KVM/libvirt host.
 
+[![License: GPL-3.0](https://img.shields.io/github/license/turbra/cockpit-openshift)](LICENSE)
+![OpenShift 4.20](https://img.shields.io/badge/OpenShift-4.20-red)
+![Cockpit](https://img.shields.io/badge/Cockpit-plugin-blue)
+![KVM/libvirt](https://img.shields.io/badge/KVM-libvirt-blue)
+![RHEL 10](https://img.shields.io/badge/RHEL-10-red)
+
 - guided OpenShift SNO deployment
 - guided OpenShift compact deployment
 - self-contained local backend for installer artifacts, libvirt storage, and
@@ -80,11 +86,11 @@ Cockpit UI instead of manually running shell commands.
 
 ```bash
 sudo mkdir -p /usr/share/cockpit/cockpit-openshift
-sudo install -m 0644 manifest.json /usr/share/cockpit/cockpit-openshift/
-sudo install -m 0644 index.html /usr/share/cockpit/cockpit-openshift/
-sudo install -m 0644 cockpit-openshift.css /usr/share/cockpit/cockpit-openshift/
-sudo install -m 0644 cockpit-openshift.js /usr/share/cockpit/cockpit-openshift/
-sudo install -m 0755 installer_backend.py /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/manifest.json /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/index.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.css /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0755 src/cockpit-openshift/installer_backend.py /usr/share/cockpit/cockpit-openshift/
 ```
 
 Cockpit discovers the plugin on page load. No service restart is required.
@@ -138,3 +144,14 @@ sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-1.0.0-1.el10.noarch
 > [!NOTE]
 > The plugin previews generated installer inputs and VM plans directly in the
 > UI. The pull secret is redacted in the YAML preview.
+
+## Project Layout
+
+- `src/cockpit-openshift/`
+  - Cockpit runtime assets and backend helper
+- `build-rpm.sh`
+  - local RPM build entrypoint
+- `cockpit-openshift.spec`
+  - RPM packaging metadata
+- `README.md`
+  - operator-facing usage and install notes

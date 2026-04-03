@@ -30,13 +30,14 @@ The current release provides:
 
 %install
 mkdir -p %{buildroot}%{_datadir}/cockpit/cockpit-openshift
-install -m 0644 manifest.json %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
-install -m 0644 index.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
-install -m 0644 cockpit-openshift.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
-install -m 0644 cockpit-openshift.css %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
-install -m 0755 installer_backend.py %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/manifest.json %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/index.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/cockpit-openshift.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/cockpit-openshift.css %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0755 src/cockpit-openshift/installer_backend.py %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0644 README.md %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 
 %files
+%license LICENSE
 %{_datadir}/cockpit/cockpit-openshift/
 

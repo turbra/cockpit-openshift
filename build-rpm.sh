@@ -5,6 +5,7 @@ SPEC_NAME="cockpit-openshift"
 VERSION="0.1.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_ROOT="${SCRIPT_DIR}/rpmbuild"
+PLUGIN_SRC_DIR="${SCRIPT_DIR}/src/cockpit-openshift"
 
 echo "==> Cleaning previous build artifacts"
 rm -rf "${BUILD_ROOT}"
@@ -14,8 +15,10 @@ echo "==> Creating source tarball"
 TARBALL_DIR="${SPEC_NAME}-${VERSION}"
 WORK="$(mktemp -d)"
 mkdir -p "${WORK}/${TARBALL_DIR}"
-cp "${SCRIPT_DIR}"/{manifest.json,index.html,cockpit-openshift.js,cockpit-openshift.css,installer_backend.py,README.md} \
-   "${WORK}/${TARBALL_DIR}/"
+mkdir -p "${WORK}/${TARBALL_DIR}/src/cockpit-openshift"
+cp "${SCRIPT_DIR}"/{README.md,LICENSE} "${WORK}/${TARBALL_DIR}/"
+cp "${PLUGIN_SRC_DIR}"/{manifest.json,index.html,cockpit-openshift.js,cockpit-openshift.css,installer_backend.py} \
+   "${WORK}/${TARBALL_DIR}/src/cockpit-openshift/"
 tar czf "${BUILD_ROOT}/SOURCES/${SPEC_NAME}-${VERSION}.tar.gz" -C "${WORK}" "${TARBALL_DIR}"
 rm -rf "${WORK}"
 
