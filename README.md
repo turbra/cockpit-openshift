@@ -11,24 +11,24 @@ the hypervisor itself.
 Current scope:
 
 - Cockpit-hosted wizard UI
-- local backend that drives the existing `stakkr` OpenShift site playbooks
+- self-contained local backend
+- native installer artifact rendering
+- local libvirt storage and domain orchestration
 - deploy and clean-rebuild actions
+- deployed-cluster discovery and destroy action
+- rendered artifact preview and export
 - status polling and recent log output from the active job
 
 ## Current workflow
 
-The plugin currently drives the existing local `stakkr` workflow:
+The plugin now owns its own local runtime workflow:
 
-- true SNO through `playbooks/site-openshift-sno.yml`
-- compact through `playbooks/site-openshift-compact.yml`
-- clean rebuilds through the matching `*-redeploy.yml` wrappers
-- rendering of the local-only working files:
-  - `vars/cluster/openshift_install_cluster.yml`
-  - `vars/guests/openshift_cluster_vm.yml`
-
-The plugin does not invent a separate install lifecycle. It follows the
-existing `stakkr` orchestration path and treats that repo as the authoritative
-backend.
+- downloads and pins `openshift-install` and `oc`
+- renders `install-config.yaml` and `agent-config.yaml`
+- generates the agent ISO under its own runtime state
+- provisions libvirt disks and domains directly
+- waits for `bootstrap-complete` and `install-complete`
+- detaches install media and validates the finished cluster
 
 ## Files
 
@@ -38,7 +38,7 @@ backend.
 | `index.html` | Plugin shell and wizard markup |
 | `cockpit-assisted-installer-local.css` | Wizard layout and component styling |
 | `cockpit-assisted-installer-local.js` | Wizard state, validation, backend calls, and status polling |
-| `installer_backend.py` | Privileged helper that validates requests, renders local-only `stakkr` inputs, and runs Ansible |
+| `installer_backend.py` | Privileged helper that validates requests, renders installer inputs, manages libvirt resources, and drives the install lifecycle |
 | `build-rpm.sh` | Builds a noarch Cockpit RPM |
 | `cockpit-assisted-installer-local.spec` | RPM packaging metadata |
 
@@ -73,15 +73,19 @@ Build output:
 
 The plugin assumes:
 
-- the `stakkr` repo already exists on the host
-- the repo secrets already exist under `stakkr/secrets/`
-- Ansible and `systemd-run` are available on the host
-- the user provides a valid vault password file path in the UI
+- libvirt and `virt-install` tooling are available on the host
+- the selected libvirt storage pool already exists
+- the user provides a valid pull secret and SSH public key in the UI, either by pasting them directly or by pointing at local files
+- the host can download OpenShift installer and client binaries from the public mirror
 
-The backend currently supports only the existing local `stakkr` capabilities:
+The backend currently supports:
 
 - `x86_64`
 - static node networking
+- SNO (`1` control-plane node) and compact (`3` control-plane nodes)
+- directory-backed and logical libvirt storage pools
+- optional local performance-domain weighting (`none`, `gold`, `silver`, `bronze`)
+- pasted or file-backed pull secret and SSH public key inputs
 - no partner-platform integration
 - no disconnected flow
 - no pull-secret editing in the UI

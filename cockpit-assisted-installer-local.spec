@@ -18,7 +18,7 @@ OpenShift installation workflow on a local KVM host.
 
 The current release provides:
 - a wizard-style installer UI
-- a privileged backend helper that drives the existing stakkr site playbooks
+- a privileged backend helper that owns the local install workflow
 - deploy and clean-rebuild actions
 - job status polling and recent log output
 
