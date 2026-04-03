@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SPEC_NAME="cockpit-assisted-installer-local"
+SPEC_NAME="cockpit-openshift"
 VERSION="0.1.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_ROOT="${SCRIPT_DIR}/rpmbuild"
@@ -14,7 +14,7 @@ echo "==> Creating source tarball"
 TARBALL_DIR="${SPEC_NAME}-${VERSION}"
 WORK="$(mktemp -d)"
 mkdir -p "${WORK}/${TARBALL_DIR}"
-cp "${SCRIPT_DIR}"/{manifest.json,index.html,cockpit-assisted-installer-local.js,cockpit-assisted-installer-local.css,installer_backend.py,README.md} \
+cp "${SCRIPT_DIR}"/{manifest.json,index.html,cockpit-openshift.js,cockpit-openshift.css,installer_backend.py,README.md} \
    "${WORK}/${TARBALL_DIR}/"
 tar czf "${BUILD_ROOT}/SOURCES/${SPEC_NAME}-${VERSION}.tar.gz" -C "${WORK}" "${TARBALL_DIR}"
 rm -rf "${WORK}"

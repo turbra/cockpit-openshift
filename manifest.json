@@ -1,5 +1,5 @@
 {
-    "name": "cockpit-assisted-installer-local",
+    "name": "cockpit-openshift",
     "requires": {
         "cockpit": "219"
     },

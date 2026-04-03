@@ -2,7 +2,7 @@
 """
 Self-contained Cockpit backend for local OpenShift installation on a KVM host.
 
-This helper owns the local runtime state for cockpit-assisted-installer-local.
+This helper owns the local runtime state for cockpit-openshift.
 It validates user input, downloads installer binaries, renders install-config
 and agent-config, manages local libvirt disks/domains, drives the OpenShift
 installer lifecycle, and reports job status back to the UI.
@@ -27,7 +27,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-STATE_DIR = Path("/var/lib/cockpit-assisted-installer-local")
+STATE_DIR = Path("/var/lib/cockpit-openshift")
 STATE_FILE = STATE_DIR / "state.json"
 REQUEST_FILE = STATE_DIR / "request.json"
 LOG_FILE = STATE_DIR / "install.log"
@@ -36,7 +36,7 @@ RUNTIME_HOME_DIR = STATE_DIR / "home"
 RUNTIME_CACHE_DIR = STATE_DIR / "cache"
 WORK_ROOT = STATE_DIR / "work"
 LIBVIRT_MEDIA_DIR = Path("/var/lib/libvirt/images")
-HELPER_PATH = Path("/usr/share/cockpit/cockpit-assisted-installer-local/installer_backend.py")
+HELPER_PATH = Path("/usr/share/cockpit/cockpit-openshift/installer_backend.py")
 STATE_SCHEMA = "standalone-v1"
 
 SUPPORTED_ARCH = "x86_64"
@@ -1343,7 +1343,7 @@ def handle_start(payload_b64: str, mode: str) -> int:
     write_private_file(LOG_FILE, "")
     write_private_file(REQUEST_FILE, json.dumps(request, indent=2, sort_keys=True))
 
-    unit_name = f"cockpit-assisted-installer-local-{dt.datetime.now():%Y%m%d%H%M%S}"
+    unit_name = f"cockpit-openshift-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = record_request_summary(request, mode, unit_name)
     state["status"] = "starting"
     save_state(state)
@@ -1353,7 +1353,7 @@ def handle_start(payload_b64: str, mode: str) -> int:
         "--unit",
         unit_name,
         "--description",
-        "Cockpit Assisted Installer Local",
+        "Cockpit OpenShift",
         "python3",
         str(HELPER_PATH),
         "run-job",
@@ -1536,7 +1536,7 @@ def handle_destroy(cluster_id: str) -> int:
     clear_runtime_state()
     ensure_runtime_dirs()
     write_private_file(LOG_FILE, "")
-    unit_name = f"cockpit-assisted-installer-local-destroy-{dt.datetime.now():%Y%m%d%H%M%S}"
+    unit_name = f"cockpit-openshift-destroy-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = {
         "schema": STATE_SCHEMA,
         "clusterName": cluster["clusterName"],
@@ -1555,7 +1555,7 @@ def handle_destroy(cluster_id: str) -> int:
         "--unit",
         unit_name,
         "--description",
-        "Cockpit Assisted Installer Local Destroy",
+        "Cockpit OpenShift Destroy",
         "python3",
         str(HELPER_PATH),
         "run-job",

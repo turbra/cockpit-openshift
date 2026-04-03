@@ -45,7 +45,7 @@ KVM/libvirt host.
 ## Default Operating Model
 
 - host-local Cockpit plugin with privileged backend helper
-- installer runtime under `/var/lib/cockpit-assisted-installer-local/`
+- installer runtime under `/var/lib/cockpit-openshift/`
 - generated artifacts owned by this project, not an external orchestration repo
 - OpenShift lifecycle driven directly by:
   - `openshift-install`
@@ -72,19 +72,19 @@ Cockpit UI instead of manually running shell commands.
 > [!NOTE]
 > Preinstalled `oc` and `openshift-install` binaries are not required. The
 > backend downloads and pins its own copies under
-> `/var/lib/cockpit-assisted-installer-local/`.
+> `/var/lib/cockpit-openshift/`.
 
 ## Installation
 
 ### From source
 
 ```bash
-sudo mkdir -p /usr/share/cockpit/cockpit-assisted-installer-local
-sudo install -m 0644 manifest.json /usr/share/cockpit/cockpit-assisted-installer-local/
-sudo install -m 0644 index.html /usr/share/cockpit/cockpit-assisted-installer-local/
-sudo install -m 0644 cockpit-assisted-installer-local.css /usr/share/cockpit/cockpit-assisted-installer-local/
-sudo install -m 0644 cockpit-assisted-installer-local.js /usr/share/cockpit/cockpit-assisted-installer-local/
-sudo install -m 0755 installer_backend.py /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo mkdir -p /usr/share/cockpit/cockpit-openshift
+sudo install -m 0644 manifest.json /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 index.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 cockpit-openshift.css /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 cockpit-openshift.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0755 installer_backend.py /usr/share/cockpit/cockpit-openshift/
 ```
 
 Cockpit discovers the plugin on page load. No service restart is required.
@@ -108,20 +108,20 @@ sudo dnf install -y rpm-build
 Then build from the project directory:
 
 ```bash
-cd /path/to/cockpit-assisted-installer-local
+cd /path/to/cockpit-openshift
 ./build-rpm.sh
 ```
 
 Build output:
 
-- `rpmbuild/RPMS/noarch/cockpit-assisted-installer-local-*.noarch.rpm`
+- `rpmbuild/RPMS/noarch/cockpit-openshift-*.noarch.rpm`
 
 ### From RPM
 
 After the RPM has been built, install it from the project directory:
 
 ```bash
-sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-assisted-installer-local-1.0.0-1.el10.noarch.rpm
+sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-1.0.0-1.el10.noarch.rpm
 ```
 
 ## Backend Expectations
@@ -132,7 +132,7 @@ sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-assisted-installer-local-1.0.
   mirror
 - the user supplies valid cluster networking, VIPs, and node IPs in the UI
 - the backend writes its own runtime state under
-  `/var/lib/cockpit-assisted-installer-local/`
+  `/var/lib/cockpit-openshift/`
 - the current validated path assumes static node networking for cluster bring-up
 
 > [!NOTE]

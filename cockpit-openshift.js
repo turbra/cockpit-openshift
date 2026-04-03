@@ -2,7 +2,7 @@
 
 /* global cockpit */
 
-var HELPER_PATH = "/usr/share/cockpit/cockpit-assisted-installer-local/installer_backend.py";
+var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
 
 var steps = [
     { id: 1, label: "Cluster details", description: "Define the cluster identity and the local secret inputs." },
