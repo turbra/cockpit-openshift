@@ -17,6 +17,7 @@ var steps = [
 var initialState = {
     currentStep: 1,
     yamlMode: false,
+    yamlPaneWidth: 560,
     clusterName: "",
     baseDomain: "localhost.com",
     openshiftVersion: "OpenShift 4.21.7",
@@ -139,6 +140,13 @@ function currentArtifact() {
         }
     });
     return selected || (state.artifacts.length ? state.artifacts[0] : null);
+}
+
+function clampYamlPaneWidth(width) {
+    var workspaceWidth = refs.wizardWorkspace ? refs.wizardWorkspace.clientWidth : 1280;
+    var minWidth = 420;
+    var maxWidth = Math.max(520, Math.floor(workspaceWidth * 0.5));
+    return Math.max(minWidth, Math.min(width, maxWidth));
 }
 
 function escapeHtml(text) {
@@ -669,7 +677,9 @@ function renderFooter() {
 function renderYamlPane() {
     refs.wizardWorkspace.classList.toggle("wizard-workspace--yaml", state.yamlMode);
     refs.yamlPane.hidden = !state.yamlMode;
+    refs.yamlDivider.hidden = !state.yamlMode;
     refs.yamlToggle.checked = state.yamlMode;
+    refs.wizardWorkspace.style.setProperty("--yaml-pane-width", clampYamlPaneWidth(state.yamlPaneWidth) + "px");
 }
 
 function render() {
@@ -732,6 +742,17 @@ function setJobFromStatus(status) {
     }
 }
 
+function shouldResetAfterDestroy(status, clusters) {
+    return !!(
+        status &&
+        !status.running &&
+        status.state &&
+        status.state.mode === "destroy" &&
+        status.state.status === "succeeded" &&
+        (!clusters || clusters.length === 0)
+    );
+}
+
 function stopPolling() {
     if (pollTimer) {
         window.clearTimeout(pollTimer);
@@ -749,7 +770,7 @@ function schedulePoll() {
 function refreshStatus() {
     backendCommand("status").then(function (status) {
         setJobFromStatus(status);
-        if (status.running || (status.state && status.state.mode === "destroy")) {
+        if (status.running) {
             state.currentStep = 7;
         }
         if (state.currentStep === 7 &&
@@ -759,13 +780,52 @@ function refreshStatus() {
             status.state.mode !== "destroy") {
             loadArtifacts("current");
         }
-        loadClusters();
-        render();
-        schedulePoll();
+        loadClusters().then(function (result) {
+            if (shouldResetAfterDestroy(status, result.clusters || [])) {
+                state.job = null;
+                state.artifacts = [];
+                state.currentArtifactName = "";
+                state.backendErrors = [];
+                lastArtifactPreviewKey = "";
+            }
+            render();
+            schedulePoll();
+        }).catch(function () {
+            render();
+            schedulePoll();
+        });
     }).catch(function (error) {
         state.backendErrors = [String(error)];
         render();
     });
+}
+
+function startYamlResize(event) {
+    var startX;
+    var startWidth;
+
+    if (!state.yamlMode || window.innerWidth <= 960) {
+        return;
+    }
+
+    startX = event.clientX;
+    startWidth = clampYamlPaneWidth(state.yamlPaneWidth);
+
+    function onMove(moveEvent) {
+        state.yamlPaneWidth = clampYamlPaneWidth(startWidth - (moveEvent.clientX - startX));
+        renderYamlPane();
+    }
+
+    function onUp() {
+        document.body.classList.remove("is-resizing-yaml");
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+    }
+
+    event.preventDefault();
+    document.body.classList.add("is-resizing-yaml");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
 }
 
 function loadOptions() {
@@ -1068,6 +1128,7 @@ function bindEvents() {
             scheduleArtifactPreviewRefresh(true);
         }
     });
+    refs.yamlDivider.addEventListener("pointerdown", startYamlResize);
 
     refs.backButton.addEventListener("click", goBack);
     refs.nextButton.addEventListener("click", goNext);
@@ -1084,6 +1145,7 @@ function cacheRefs() {
     refs.wizardWorkspace = document.getElementById("wizard-workspace");
     refs.yamlToggle = document.getElementById("yaml-toggle");
     refs.yamlPane = document.getElementById("yaml-pane");
+    refs.yamlDivider = document.getElementById("yaml-divider");
     refs.stepList = document.getElementById("step-list");
     refs.stepTitle = document.getElementById("step-title");
     refs.stepDescription = document.getElementById("step-description");

@@ -15,9 +15,11 @@ code {
 }
 
 .wizard-page {
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 24px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 24px 32px;
+    box-sizing: border-box;
 }
 
 .wizard-header {
@@ -61,17 +63,57 @@ code {
 
 .wizard-workspace {
     display: block;
+    --yaml-pane-width: 560px;
 }
 
 .wizard-workspace--yaml {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(420px, 46%);
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) 12px minmax(420px, var(--yaml-pane-width));
+    gap: 0;
     align-items: start;
 }
 
 .wizard-workspace--yaml .wizard-layout {
     min-width: 0;
+    padding-right: 20px;
+}
+
+.yaml-divider {
+    position: relative;
+    align-self: stretch;
+    min-height: 100%;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.yaml-divider::before {
+    content: "";
+    position: absolute;
+    top: 24px;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: #d2d2d2;
+}
+
+.yaml-divider::after {
+    content: "";
+    position: absolute;
+    top: 96px;
+    left: 50%;
+    width: 6px;
+    height: 36px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: #8a8d90;
+    opacity: 0.35;
+}
+
+body.is-resizing-yaml,
+body.is-resizing-yaml * {
+    cursor: col-resize !important;
+    user-select: none;
 }
 
 .inventory-panel {
@@ -783,6 +825,10 @@ code {
 }
 
 @media (max-width: 960px) {
+    .wizard-page {
+        padding: 24px 16px;
+    }
+
     .wizard-header {
         flex-direction: column;
     }
@@ -793,6 +839,10 @@ code {
 
     .wizard-workspace--yaml {
         grid-template-columns: 1fr;
+    }
+
+    .wizard-workspace--yaml .wizard-layout {
+        padding-right: 0;
     }
 
     .wizard-sidebar {
@@ -818,6 +868,10 @@ code {
 
     .yaml-pane {
         position: static;
+    }
+
+    .yaml-divider {
+        display: none;
     }
 
     .yaml-editor__scroll {
