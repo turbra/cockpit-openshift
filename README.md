@@ -1,7 +1,6 @@
 # Cockpit Assisted Installer Local
 
-Cockpit plugin prototype for guided OpenShift installation from a local KVM
-host.
+Cockpit plugin for guided OpenShift installation from a local KVM host.
 
 ## Purpose
 
@@ -11,23 +10,25 @@ the hypervisor itself.
 
 Current scope:
 
-- Cockpit plugin frontend only
-- wizard-style OpenShift install page
-- local browser-side state and validation
-- no deployment backend yet
+- Cockpit-hosted wizard UI
+- local backend that drives the existing `stakkr` OpenShift site playbooks
+- deploy and clean-rebuild actions
+- status polling and recent log output from the active job
 
-## Current UI
+## Current workflow
 
-The current prototype implements the first wizard page:
+The plugin currently drives the existing local `stakkr` workflow:
 
-- `Cluster details`
-- step navigation for later stages
-- form state for all first-page controls
-- required-field validation for cluster name
-- disabled `Next` until the first page is valid
+- true SNO through `playbooks/site-openshift-sno.yml`
+- compact through `playbooks/site-openshift-compact.yml`
+- clean rebuilds through the matching `*-redeploy.yml` wrappers
+- rendering of the local-only working files:
+  - `vars/cluster/openshift_install_cluster.yml`
+  - `vars/guests/openshift_cluster_vm.yml`
 
-Later steps such as host discovery, manifests, and deployment orchestration are
-not implemented yet.
+The plugin does not invent a separate install lifecycle. It follows the
+existing `stakkr` orchestration path and treats that repo as the authoritative
+backend.
 
 ## Files
 
@@ -36,7 +37,8 @@ not implemented yet.
 | `manifest.json` | Cockpit sidebar registration |
 | `index.html` | Plugin shell and wizard markup |
 | `cockpit-assisted-installer-local.css` | Wizard layout and component styling |
-| `cockpit-assisted-installer-local.js` | Local state and first-page validation |
+| `cockpit-assisted-installer-local.js` | Wizard state, validation, backend calls, and status polling |
+| `installer_backend.py` | Privileged helper that validates requests, renders local-only `stakkr` inputs, and runs Ansible |
 | `build-rpm.sh` | Builds a noarch Cockpit RPM |
 | `cockpit-assisted-installer-local.spec` | RPM packaging metadata |
 
@@ -44,10 +46,15 @@ not implemented yet.
 
 ```bash
 sudo mkdir -p /usr/share/cockpit/cockpit-assisted-installer-local
-sudo rsync -av --delete /path/to/cockpit-assisted-installer-local/ /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo install -m 0644 manifest.json /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo install -m 0644 index.html /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo install -m 0644 cockpit-assisted-installer-local.css /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo install -m 0644 cockpit-assisted-installer-local.js /usr/share/cockpit/cockpit-assisted-installer-local/
+sudo install -m 0755 installer_backend.py /usr/share/cockpit/cockpit-assisted-installer-local/
 ```
 
-Cockpit discovers the plugin on page load.
+Cockpit discovers the plugin on page load. The backend helper is invoked through
+`cockpit.spawn(..., { superuser: "require" })`.
 
 ## Build RPM
 
@@ -62,18 +69,22 @@ Build output:
 - `rpmbuild/RPMS/noarch/cockpit-assisted-installer-local-*.noarch.rpm`
 - `rpmbuild/SRPMS/cockpit-assisted-installer-local-*.src.rpm`
 
-## Feasibility Notes
+## Backend expectations
 
-This is feasible as a standalone Cockpit project without introducing a frontend
-build system.
+The plugin assumes:
 
-Cockpit plugins can be delivered as:
+- the `stakkr` repo already exists on the host
+- the repo secrets already exist under `stakkr/secrets/`
+- Ansible and `systemd-run` are available on the host
+- the user provides a valid vault password file path in the UI
 
-- `manifest.json`
-- static HTML
-- static CSS
-- plain JavaScript
+The backend currently supports only the existing local `stakkr` capabilities:
 
-That is enough for a guided wizard UI. A future backend can be added later
-through `cockpit.spawn()` or a dedicated service once the deployment flow is
-settled.
+- `x86_64`
+- static node networking
+- no partner-platform integration
+- no disconnected flow
+- no pull-secret editing in the UI
+- no disk-encryption wiring from the UI
+
+Those constraints are explicit backend limits, not hidden defaults.

@@ -1,7 +1,7 @@
 Name:           cockpit-assisted-installer-local
 Version:        0.1.0
 Release:        1%{?dist}
-Summary:        Cockpit plugin prototype for local OpenShift installation
+Summary:        Cockpit plugin for local OpenShift installation
 
 License:        GPL-3.0-or-later
 URL:            https://github.com/turbra/cockpit-assisted-installer-local
@@ -17,11 +17,10 @@ Cockpit Assisted Installer Local is a Cockpit plugin prototype for a guided
 OpenShift installation workflow on a local KVM host.
 
 The current release provides:
-- a wizard-style installer shell
-- first-page cluster details form state and validation
-- Cockpit-native static plugin packaging
-
-It does not perform deployment actions yet.
+- a wizard-style installer UI
+- a privileged backend helper that drives the existing stakkr site playbooks
+- deploy and clean-rebuild actions
+- job status polling and recent log output
 
 %prep
 %autosetup
@@ -35,6 +34,7 @@ install -m 0644 manifest.json %{buildroot}%{_datadir}/cockpit/cockpit-assisted-i
 install -m 0644 index.html %{buildroot}%{_datadir}/cockpit/cockpit-assisted-installer-local/
 install -m 0644 cockpit-assisted-installer-local.js %{buildroot}%{_datadir}/cockpit/cockpit-assisted-installer-local/
 install -m 0644 cockpit-assisted-installer-local.css %{buildroot}%{_datadir}/cockpit/cockpit-assisted-installer-local/
+install -m 0755 installer_backend.py %{buildroot}%{_datadir}/cockpit/cockpit-assisted-installer-local/
 install -m 0644 README.md %{buildroot}%{_datadir}/cockpit/cockpit-assisted-installer-local/
 
 %files

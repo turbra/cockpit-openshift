@@ -29,7 +29,13 @@
             <main class="wizard-main">
                 <section class="wizard-card">
                     <div class="wizard-card__header">
-                        <h2 class="wizard-card__title">Cluster details</h2>
+                        <div>
+                            <h2 id="step-title" class="wizard-card__title">Cluster details</h2>
+                            <p id="step-description" class="wizard-card__description"></p>
+                        </div>
+                    </div>
+
+                    <section id="step-1" class="step-panel">
                         <div class="wizard-card__controls">
                             <span class="preview-badge">Technology Preview</span>
                             <label class="switch-field" for="disconnected-toggle">
@@ -40,145 +46,341 @@
                                 </span>
                             </label>
                         </div>
-                    </div>
 
-                    <form id="cluster-form" class="cluster-form" novalidate>
-                        <div class="form-field" id="cluster-name-field">
-                            <label class="field-label" for="cluster-name">
-                                Cluster name
-                                <span class="required-marker">*</span>
-                            </label>
-                            <input id="cluster-name"
-                                   class="text-input"
-                                   type="text"
-                                   name="cluster_name"
-                                   autocomplete="off"
-                                   aria-describedby="cluster-name-error" />
-                            <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
+                        <form id="cluster-form" class="cluster-form" novalidate>
+                            <div class="form-field" id="cluster-name-field">
+                                <label class="field-label" for="cluster-name">
+                                    Cluster name
+                                    <span class="required-marker">*</span>
+                                </label>
+                                <input id="cluster-name"
+                                       class="text-input"
+                                       type="text"
+                                       name="cluster_name"
+                                       autocomplete="off"
+                                       aria-describedby="cluster-name-error" />
+                                <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
+                            </div>
+
+                            <div class="form-field" id="base-domain-field">
+                                <label class="field-label" for="base-domain">
+                                    Base domain
+                                    <span class="required-marker">*</span>
+                                </label>
+                                <input id="base-domain"
+                                       class="text-input"
+                                       type="text"
+                                       name="base_domain"
+                                       value="localhost.com"
+                                       autocomplete="off"
+                                       aria-describedby="base-domain-help" />
+                                <div id="base-domain-help" class="field-helper">
+                                    <div>This is the base domain and it cannot be changed after install.</div>
+                                    <div>DNS records must include the cluster name and be subdomains of the base domain.</div>
+                                    <div>Example final address format: <code>[Cluster Name].[domainname.com]</code></div>
+                                </div>
+                            </div>
+
+                            <div class="form-field">
+                                <label class="field-label" for="openshift-version">OpenShift version</label>
+                                <select id="openshift-version" class="select-input" name="openshift_version">
+                                    <option selected>OpenShift 4.21.7</option>
+                                    <option>OpenShift 4.21.6</option>
+                                    <option>OpenShift 4.20.15</option>
+                                </select>
+                            </div>
+
+                            <div class="form-field" id="cpu-architecture-field">
+                                <label class="field-label" for="cpu-architecture">CPU architecture</label>
+                                <select id="cpu-architecture" class="select-input" name="cpu_architecture">
+                                    <option selected>x86_64</option>
+                                    <option>aarch64</option>
+                                    <option>ppc64le</option>
+                                </select>
+                                <div class="field-helper">The current local backend only supports <code>x86_64</code>.</div>
+                            </div>
+
+                            <div class="form-field checkbox-field" id="edit-pull-secret-field">
+                                <label class="checkbox-label" for="edit-pull-secret">
+                                    <input id="edit-pull-secret" type="checkbox" name="edit_pull_secret" />
+                                    <span>Edit pull secret</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" id="platform-integration-field">
+                                <label class="field-label" for="platform-integration">Integrate with external partner platforms</label>
+                                <select id="platform-integration" class="select-input" name="platform_integration">
+                                    <option selected>No platform integration</option>
+                                    <option>VMware vSphere</option>
+                                    <option>Nutanix</option>
+                                    <option>External platform integration</option>
+                                </select>
+                            </div>
+
+                            <div class="form-field">
+                                <label class="field-label field-label--with-help" for="control-plane-count">
+                                    <span>Number of control plane nodes</span>
+                                    <button type="button"
+                                            class="help-button"
+                                            aria-label="Control plane node count help"
+                                            title="One control plane node maps to the stakkr SNO path. Three control plane nodes map to the compact path.">?</button>
+                                </label>
+                                <select id="control-plane-count" class="select-input" name="control_plane_nodes">
+                                    <option value="3" selected>3 (highly available cluster)</option>
+                                    <option value="1">1 (single-node control plane)</option>
+                                </select>
+                            </div>
+
+                            <fieldset class="form-field fieldset-group" id="hosts-network-field">
+                                <legend class="field-label">Hosts' network configuration</legend>
+                                <label class="radio-label" for="network-dhcp">
+                                    <input id="network-dhcp" type="radio" name="hosts_network_configuration" value="dhcp" checked />
+                                    <span>DHCP only</span>
+                                </label>
+                                <label class="radio-label" for="network-static">
+                                    <input id="network-static" type="radio" name="hosts_network_configuration" value="static" />
+                                    <span>Static IP, bridges, and bonds</span>
+                                </label>
+                                <div class="field-helper">
+                                    The current local backend follows the existing <code>stakkr</code> agent-config path, which requires static node IPs.
+                                </div>
+                            </fieldset>
+
+                            <fieldset class="form-field fieldset-group" id="disk-encryption-field">
+                                <legend class="field-label">Encryption of installation disks</legend>
+                                <div class="encryption-group">
+                                    <label class="switch-field switch-field--stacked" for="encrypt-control-plane">
+                                        <span class="switch-label">Control plane nodes</span>
+                                        <span class="switch-control">
+                                            <input id="encrypt-control-plane" type="checkbox" name="encrypt_control_plane" />
+                                            <span class="switch-slider" aria-hidden="true"></span>
+                                        </span>
+                                    </label>
+
+                                    <label class="switch-field switch-field--stacked" for="encrypt-workers">
+                                        <span class="switch-label">Workers</span>
+                                        <span class="switch-control">
+                                            <input id="encrypt-workers" type="checkbox" name="encrypt_workers" />
+                                            <span class="switch-slider" aria-hidden="true"></span>
+                                        </span>
+                                    </label>
+
+                                    <label class="switch-field switch-field--stacked" for="encrypt-arbiter">
+                                        <span class="switch-label">Arbiter</span>
+                                        <span class="switch-control">
+                                            <input id="encrypt-arbiter" type="checkbox" name="encrypt_arbiter" />
+                                            <span class="switch-slider" aria-hidden="true"></span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <div class="field-helper">
+                                    Disk encryption is not wired into the current local backend yet.
+                                </div>
+                            </fieldset>
+
+                            <div class="form-section">
+                                <h3 class="section-title">Execution settings</h3>
+                                <div class="form-field" id="stakkr-root-field">
+                                    <label class="field-label" for="stakkr-root">
+                                        stakkr project root
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="stakkr-root"
+                                           class="text-input"
+                                           type="text"
+                                           name="stakkr_root"
+                                           autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="vault-password-file-field">
+                                    <label class="field-label" for="vault-password-file">
+                                        Vault password file
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="vault-password-file"
+                                           class="text-input"
+                                           type="text"
+                                           name="vault_password_file"
+                                           autocomplete="off" />
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="step-2" class="step-panel" hidden>
+                        <div class="info-stack">
+                            <div class="info-card">
+                                <h3 class="section-title">Operators</h3>
+                                <p class="body-copy">
+                                    This local backend keeps the repo defaults. Additional operator selection and partner platform integration are not wired yet.
+                                </p>
+                            </div>
                         </div>
+                    </section>
 
-                        <div class="form-field">
-                            <label class="field-label" for="base-domain">
-                                Base domain
-                                <span class="required-marker">*</span>
-                            </label>
-                            <input id="base-domain"
-                                   class="text-input"
-                                   type="text"
-                                   name="base_domain"
-                                   value="localhost.com"
-                                   autocomplete="off"
-                                   aria-describedby="base-domain-help" />
-                            <div id="base-domain-help" class="field-helper">
-                                <div>This is the base domain and it cannot be changed after install.</div>
-                                <div>DNS records must include the cluster name and be subdomains of the base domain.</div>
-                                <div>Example final address format: <code>[Cluster Name].[domainname.com]</code></div>
+                    <section id="step-3" class="step-panel" hidden>
+                        <div class="info-stack">
+                            <div class="info-card">
+                                <h3 class="section-title">Host discovery</h3>
+                                <p class="body-copy">
+                                    Host discovery is handled by the existing <code>stakkr</code> agent ISO flow. The plugin renders the local-only input files, generates the agent image through the site playbook, and lets the cluster discovery happen through that path.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="step-4" class="step-panel" hidden>
+                        <div class="info-stack">
+                            <div class="info-card">
+                                <h3 class="section-title">Storage</h3>
+                                <p class="body-copy">
+                                    Compact uses the existing raw logical-volume path from <code>/dev/ocptb</code>. SNO uses the current repo VM defaults. Storage sizing is not configurable in this first backend pass.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="step-5" class="step-panel" hidden>
+                        <form id="network-form" class="cluster-form" novalidate>
+                            <div class="form-section">
+                                <h3 class="section-title">Machine network</h3>
+
+                                <div class="form-field" id="machine-cidr-field">
+                                    <label class="field-label" for="machine-cidr">
+                                        Machine network CIDR
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="machine-cidr" class="text-input" type="text" autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="machine-gateway-field">
+                                    <label class="field-label" for="machine-gateway">
+                                        Machine gateway
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="machine-gateway" class="text-input" type="text" autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="dns-servers-field">
+                                    <label class="field-label" for="dns-servers">
+                                        DNS servers
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="dns-servers" class="text-input" type="text" autocomplete="off" aria-describedby="dns-servers-help" />
+                                    <div id="dns-servers-help" class="field-helper">
+                                        Enter one or more IPv4 addresses separated by commas.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3 class="section-title">Control plane nodes</h3>
+
+                                <div class="form-field" id="control-plane-ip-1-field">
+                                    <label class="field-label" for="control-plane-ip-1">
+                                        Control plane node 1 IP
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="control-plane-ip-1" class="text-input" type="text" autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="control-plane-ip-2-field">
+                                    <label class="field-label" for="control-plane-ip-2">
+                                        Control plane node 2 IP
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="control-plane-ip-2" class="text-input" type="text" autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="control-plane-ip-3-field">
+                                    <label class="field-label" for="control-plane-ip-3">
+                                        Control plane node 3 IP
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="control-plane-ip-3" class="text-input" type="text" autocomplete="off" />
+                                </div>
+                            </div>
+
+                            <div id="compact-vips-section" class="form-section">
+                                <h3 class="section-title">Cluster VIPs</h3>
+
+                                <div class="form-field" id="api-vip-field">
+                                    <label class="field-label" for="api-vip">
+                                        API VIP
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="api-vip" class="text-input" type="text" autocomplete="off" />
+                                </div>
+
+                                <div class="form-field" id="ingress-vip-field">
+                                    <label class="field-label" for="ingress-vip">
+                                        Ingress VIP
+                                        <span class="required-marker">*</span>
+                                    </label>
+                                    <input id="ingress-vip" class="text-input" type="text" autocomplete="off" />
+                                </div>
+                            </div>
+
+                            <div id="sno-vips-note" class="info-card" hidden>
+                                <h3 class="section-title">SNO networking</h3>
+                                <p class="body-copy">
+                                    For the current SNO path, <code>api</code>, <code>api-int</code>, and <code>*.apps</code> are all rendered to the single control plane node IP.
+                                </p>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="step-6" class="step-panel" hidden>
+                        <div class="info-stack">
+                            <div class="info-card">
+                                <h3 class="section-title">Custom manifests</h3>
+                                <p class="body-copy">
+                                    Custom manifest injection is not wired in this pass. The backend uses the repo defaults and the existing <code>stakkr</code> site playbooks only.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="step-7" class="step-panel" hidden>
+                        <div class="summary-grid">
+                            <div class="info-card">
+                                <h3 class="section-title">Review</h3>
+                                <dl id="review-list" class="review-list"></dl>
+                            </div>
+
+                            <div class="info-card">
+                                <h3 class="section-title">Execution status</h3>
+                                <div id="preflight-alert" class="validation-alert" hidden>
+                                    <div class="validation-alert__title">The deployment request is not ready</div>
+                                    <div id="preflight-alert-body" class="validation-alert__body"></div>
+                                </div>
+                                <div id="job-status" class="info-card__body">
+                                    <div id="job-status-summary" class="body-copy">No deployment has been started yet.</div>
+                                    <div id="job-current-task" class="field-helper"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-field">
-                            <label class="field-label" for="openshift-version">OpenShift version</label>
-                            <select id="openshift-version" class="select-input" name="openshift_version">
-                                <option selected>OpenShift 4.21.7</option>
-                                <option>OpenShift 4.21.6</option>
-                                <option>OpenShift 4.20.15</option>
-                            </select>
-                        </div>
-
-                        <div class="form-field">
-                            <label class="field-label" for="cpu-architecture">CPU architecture</label>
-                            <select id="cpu-architecture" class="select-input" name="cpu_architecture">
-                                <option selected>x86_64</option>
-                                <option>aarch64</option>
-                                <option>ppc64le</option>
-                            </select>
-                        </div>
-
-                        <div class="form-field checkbox-field">
-                            <label class="checkbox-label" for="edit-pull-secret">
-                                <input id="edit-pull-secret" type="checkbox" name="edit_pull_secret" />
-                                <span>Edit pull secret</span>
-                            </label>
-                        </div>
-
-                        <div class="form-field">
-                            <label class="field-label" for="platform-integration">Integrate with external partner platforms</label>
-                            <select id="platform-integration" class="select-input" name="platform_integration">
-                                <option selected>No platform integration</option>
-                                <option>VMware vSphere</option>
-                                <option>Nutanix</option>
-                                <option>External platform integration</option>
-                            </select>
-                        </div>
-
-                        <div class="form-field">
-                            <label class="field-label field-label--with-help" for="control-plane-count">
-                                <span>Number of control plane nodes</span>
-                                <button type="button"
-                                        class="help-button"
-                                        aria-label="Control plane node count help"
-                                        title="Three control plane nodes provide a highly available control plane for the cluster.">?</button>
-                            </label>
-                            <select id="control-plane-count" class="select-input" name="control_plane_nodes">
-                                <option selected>3 (highly available cluster)</option>
-                                <option>1 (single-node control plane)</option>
-                            </select>
-                        </div>
-
-                        <fieldset class="form-field fieldset-group">
-                            <legend class="field-label">Hosts' network configuration</legend>
-                            <label class="radio-label" for="network-dhcp">
-                                <input id="network-dhcp" type="radio" name="hosts_network_configuration" value="dhcp" checked />
-                                <span>DHCP only</span>
-                            </label>
-                            <label class="radio-label" for="network-static">
-                                <input id="network-static" type="radio" name="hosts_network_configuration" value="static" />
-                                <span>Static IP, bridges, and bonds</span>
-                            </label>
-                        </fieldset>
-
-                        <fieldset class="form-field fieldset-group">
-                            <legend class="field-label">Encryption of installation disks</legend>
-                            <div class="encryption-group">
-                                <label class="switch-field switch-field--stacked" for="encrypt-control-plane">
-                                    <span class="switch-label">Control plane nodes</span>
-                                    <span class="switch-control">
-                                        <input id="encrypt-control-plane" type="checkbox" name="encrypt_control_plane" />
-                                        <span class="switch-slider" aria-hidden="true"></span>
-                                    </span>
-                                </label>
-
-                                <label class="switch-field switch-field--stacked" for="encrypt-workers">
-                                    <span class="switch-label">Workers</span>
-                                    <span class="switch-control">
-                                        <input id="encrypt-workers" type="checkbox" name="encrypt_workers" />
-                                        <span class="switch-slider" aria-hidden="true"></span>
-                                    </span>
-                                </label>
-
-                                <label class="switch-field switch-field--stacked" for="encrypt-arbiter">
-                                    <span class="switch-label">Arbiter</span>
-                                    <span class="switch-control">
-                                        <input id="encrypt-arbiter" type="checkbox" name="encrypt_arbiter" />
-                                        <span class="switch-slider" aria-hidden="true"></span>
-                                    </span>
-                                </label>
+                        <div class="log-panel">
+                            <div class="log-panel__header">
+                                <h3 class="section-title">Recent output</h3>
                             </div>
-                        </fieldset>
-                    </form>
+                            <pre id="job-log" class="log-output">No log output yet.</pre>
+                        </div>
+                    </section>
 
                     <div id="validation-alert" class="validation-alert" role="alert" aria-live="polite">
                         <div class="validation-alert__title">Provided cluster configuration is not valid</div>
-                        <div class="validation-alert__body">The following fields are invalid or missing: Cluster name.</div>
-                    </div>
-
-                    <div id="next-status" class="info-alert" role="status" aria-live="polite" hidden>
-                        Cluster details captured. Later wizard steps are not implemented yet.
+                        <div id="validation-alert-body" class="validation-alert__body"></div>
                     </div>
                 </section>
 
                 <footer class="wizard-footer">
-                    <button id="next-button" class="action-button action-button--primary" type="button" disabled>Next</button>
+                    <button id="back-button" class="action-button action-button--secondary" type="button">Back</button>
+                    <button id="next-button" class="action-button action-button--primary" type="button">Next</button>
+                    <button id="deploy-button" class="action-button action-button--primary" type="button" hidden>Deploy</button>
+                    <button id="redeploy-button" class="action-button action-button--secondary" type="button" hidden>Clean rebuild</button>
+                    <button id="stop-button" class="action-button action-button--secondary action-button--danger" type="button" hidden>Stop</button>
                     <button id="cancel-button" class="action-button action-button--secondary" type="button">Cancel</button>
                 </footer>
             </main>
