@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Install OpenShift</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="cockpit-assisted-installer-local.css" />
+    <script src="../base1/cockpit.js"></script>
+</head>
+<body class="pf-v6-m-tabular-nums">
+    <div id="app" class="wizard-page">
+        <header class="wizard-header">
+            <div>
+                <h1 class="wizard-title">Install OpenShift</h1>
+                <a class="wizard-doc-link"
+                   href="https://docs.redhat.com/en/documentation/openshift_container_platform"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    OpenShift installation documentation
+                </a>
+            </div>
+        </header>
+
+        <div class="wizard-layout">
+            <aside class="wizard-sidebar" aria-label="Wizard steps">
+                <ol id="step-list" class="wizard-steps"></ol>
+            </aside>
+
+            <main class="wizard-main">
+                <section class="wizard-card">
+                    <div class="wizard-card__header">
+                        <h2 class="wizard-card__title">Cluster details</h2>
+                        <div class="wizard-card__controls">
+                            <span class="preview-badge">Technology Preview</span>
+                            <label class="switch-field" for="disconnected-toggle">
+                                <span class="switch-label">I'm installing on a disconnected/air-gapped/secured environment</span>
+                                <span class="switch-control">
+                                    <input id="disconnected-toggle" type="checkbox" />
+                                    <span class="switch-slider" aria-hidden="true"></span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <form id="cluster-form" class="cluster-form" novalidate>
+                        <div class="form-field" id="cluster-name-field">
+                            <label class="field-label" for="cluster-name">
+                                Cluster name
+                                <span class="required-marker">*</span>
+                            </label>
+                            <input id="cluster-name"
+                                   class="text-input"
+                                   type="text"
+                                   name="cluster_name"
+                                   autocomplete="off"
+                                   aria-describedby="cluster-name-error" />
+                            <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="field-label" for="base-domain">
+                                Base domain
+                                <span class="required-marker">*</span>
+                            </label>
+                            <input id="base-domain"
+                                   class="text-input"
+                                   type="text"
+                                   name="base_domain"
+                                   value="localhost.com"
+                                   autocomplete="off"
+                                   aria-describedby="base-domain-help" />
+                            <div id="base-domain-help" class="field-helper">
+                                <div>This is the base domain and it cannot be changed after install.</div>
+                                <div>DNS records must include the cluster name and be subdomains of the base domain.</div>
+                                <div>Example final address format: <code>[Cluster Name].[domainname.com]</code></div>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="field-label" for="openshift-version">OpenShift version</label>
+                            <select id="openshift-version" class="select-input" name="openshift_version">
+                                <option selected>OpenShift 4.21.7</option>
+                                <option>OpenShift 4.21.6</option>
+                                <option>OpenShift 4.20.15</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="field-label" for="cpu-architecture">CPU architecture</label>
+                            <select id="cpu-architecture" class="select-input" name="cpu_architecture">
+                                <option selected>x86_64</option>
+                                <option>aarch64</option>
+                                <option>ppc64le</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field checkbox-field">
+                            <label class="checkbox-label" for="edit-pull-secret">
+                                <input id="edit-pull-secret" type="checkbox" name="edit_pull_secret" />
+                                <span>Edit pull secret</span>
+                            </label>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="field-label" for="platform-integration">Integrate with external partner platforms</label>
+                            <select id="platform-integration" class="select-input" name="platform_integration">
+                                <option selected>No platform integration</option>
+                                <option>VMware vSphere</option>
+                                <option>Nutanix</option>
+                                <option>External platform integration</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="field-label field-label--with-help" for="control-plane-count">
+                                <span>Number of control plane nodes</span>
+                                <button type="button"
+                                        class="help-button"
+                                        aria-label="Control plane node count help"
+                                        title="Three control plane nodes provide a highly available control plane for the cluster.">?</button>
+                            </label>
+                            <select id="control-plane-count" class="select-input" name="control_plane_nodes">
+                                <option selected>3 (highly available cluster)</option>
+                                <option>1 (single-node control plane)</option>
+                            </select>
+                        </div>
+
+                        <fieldset class="form-field fieldset-group">
+                            <legend class="field-label">Hosts' network configuration</legend>
+                            <label class="radio-label" for="network-dhcp">
+                                <input id="network-dhcp" type="radio" name="hosts_network_configuration" value="dhcp" checked />
+                                <span>DHCP only</span>
+                            </label>
+                            <label class="radio-label" for="network-static">
+                                <input id="network-static" type="radio" name="hosts_network_configuration" value="static" />
+                                <span>Static IP, bridges, and bonds</span>
+                            </label>
+                        </fieldset>
+
+                        <fieldset class="form-field fieldset-group">
+                            <legend class="field-label">Encryption of installation disks</legend>
+                            <div class="encryption-group">
+                                <label class="switch-field switch-field--stacked" for="encrypt-control-plane">
+                                    <span class="switch-label">Control plane nodes</span>
+                                    <span class="switch-control">
+                                        <input id="encrypt-control-plane" type="checkbox" name="encrypt_control_plane" />
+                                        <span class="switch-slider" aria-hidden="true"></span>
+                                    </span>
+                                </label>
+
+                                <label class="switch-field switch-field--stacked" for="encrypt-workers">
+                                    <span class="switch-label">Workers</span>
+                                    <span class="switch-control">
+                                        <input id="encrypt-workers" type="checkbox" name="encrypt_workers" />
+                                        <span class="switch-slider" aria-hidden="true"></span>
+                                    </span>
+                                </label>
+
+                                <label class="switch-field switch-field--stacked" for="encrypt-arbiter">
+                                    <span class="switch-label">Arbiter</span>
+                                    <span class="switch-control">
+                                        <input id="encrypt-arbiter" type="checkbox" name="encrypt_arbiter" />
+                                        <span class="switch-slider" aria-hidden="true"></span>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
+                    </form>
+
+                    <div id="validation-alert" class="validation-alert" role="alert" aria-live="polite">
+                        <div class="validation-alert__title">Provided cluster configuration is not valid</div>
+                        <div class="validation-alert__body">The following fields are invalid or missing: Cluster name.</div>
+                    </div>
+
+                    <div id="next-status" class="info-alert" role="status" aria-live="polite" hidden>
+                        Cluster details captured. Later wizard steps are not implemented yet.
+                    </div>
+                </section>
+
+                <footer class="wizard-footer">
+                    <button id="next-button" class="action-button action-button--primary" type="button" disabled>Next</button>
+                    <button id="cancel-button" class="action-button action-button--secondary" type="button">Cancel</button>
+                </footer>
+            </main>
+        </div>
+    </div>
+
+    <script src="cockpit-assisted-installer-local.js"></script>
+</body>
+</html>
