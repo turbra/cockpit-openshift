@@ -881,6 +881,7 @@ def wait_for_installer(paths: dict, phase: str) -> None:
         [
             str(paths["installerBinary"]),
             f"--dir={paths['installDir']}",
+            "agent",
             "wait-for",
             phase,
             "--log-level=debug",
