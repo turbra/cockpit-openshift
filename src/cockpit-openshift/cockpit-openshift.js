@@ -52,7 +52,8 @@ var initialState = {
     currentArtifactName: "",
     clusters: [],
     backendErrors: [],
-    job: null
+    job: null,
+    showKubeadminPassword: false
 };
 
 var state = cloneState(initialState);
@@ -615,6 +616,36 @@ function renderReview() {
     });
 }
 
+function createPasswordValue(password) {
+    var wrapper = document.createElement("div");
+    var value = document.createElement("span");
+    var toggle = document.createElement("button");
+    var label = state.showKubeadminPassword ? "Hide password" : "Show password";
+    var displayValue = state.showKubeadminPassword ? password : "\u2022".repeat(Math.max(password.length, 12));
+
+    wrapper.className = "secret-field";
+    value.className = "secret-field__value";
+    value.textContent = displayValue;
+    value.setAttribute("aria-label", state.showKubeadminPassword ? "Kubeadmin password visible" : "Kubeadmin password hidden");
+
+    toggle.type = "button";
+    toggle.className = "secret-field__toggle";
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("aria-pressed", state.showKubeadminPassword ? "true" : "false");
+    toggle.title = label;
+    toggle.innerHTML = state.showKubeadminPassword
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.12 5.64 3.4 4.36l16.24 16.24-1.28 1.28-3.15-3.15a12.55 12.55 0 0 1-3.21.43c-5.52 0-10.27-3.28-12-7.91a12.96 12.96 0 0 1 4.82-5.94zm6.11 6.11a4 4 0 0 0 5.01 5.01zm8.96 2.56 2.37 2.37A13.1 13.1 0 0 0 24 11.25c-1.73-4.63-6.48-7.91-12-7.91a12.4 12.4 0 0 0-4.07.68l2.02 2.02A10.14 10.14 0 0 1 12 5.84c4.1 0 7.66 2.34 9.19 5.41a10.79 10.79 0 0 1-4 5.06zM12 8a3.97 3.97 0 0 0-1.4.25l5.15 5.15A4 4 0 0 0 12 8z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.34c4.1 0 7.66 2.34 9.19 5.41-1.53 3.07-5.09 5.41-9.19 5.41s-7.66-2.34-9.19-5.41C4.34 7.68 7.9 5.34 12 5.34m0-2C6.48 3.34 1.73 6.62 0 11.25c1.73 4.63 6.48 7.91 12 7.91s10.27-3.28 12-7.91c-1.73-4.63-6.48-7.91-12-7.91m0 5a3.91 3.91 0 1 1-3.91 3.91A3.92 3.92 0 0 1 12 8.34m0-2A5.91 5.91 0 1 0 17.91 12 5.92 5.92 0 0 0 12 6.34"/></svg>';
+    toggle.addEventListener("click", function () {
+        state.showKubeadminPassword = !state.showKubeadminPassword;
+        renderJob();
+    });
+
+    wrapper.appendChild(value);
+    wrapper.appendChild(toggle);
+    return wrapper;
+}
+
 function renderJob() {
     if (!state.job) {
         refs.jobStatusSummary.textContent = "No deployment has been started yet.";
@@ -622,6 +653,7 @@ function renderJob() {
         refs.jobLog.textContent = "No log output yet.";
         refs.installAccessCard.hidden = true;
         refs.installAccessList.innerHTML = "";
+        state.showKubeadminPassword = false;
         return;
     }
     var action = state.job.state && state.job.state.mode === "destroy" ? "Destroy" : "Deployment";
@@ -638,20 +670,25 @@ function renderJob() {
     refs.installAccessList.innerHTML = "";
     if (state.job.state && state.job.state.installAccess) {
         [
-            ["Console endpoint", state.job.state.installAccess.consoleUrl || "Not available"],
-            ["Username", state.job.state.installAccess.kubeadminUsername || "Not available"],
-            ["Password", state.job.state.installAccess.kubeadminPassword || "Not available"]
+            { label: "Console endpoint", value: state.job.state.installAccess.consoleUrl || "Not available" },
+            { label: "Username", value: state.job.state.installAccess.kubeadminUsername || "Not available" },
+            { label: "Password", value: state.job.state.installAccess.kubeadminPassword || "Not available", password: true }
         ].forEach(function (row) {
             var dt = document.createElement("dt");
-            dt.textContent = row[0];
             var dd = document.createElement("dd");
-            dd.textContent = row[1];
+            dt.textContent = row.label;
+            if (row.password && row.value !== "Not available") {
+                dd.appendChild(createPasswordValue(row.value));
+            } else {
+                dd.textContent = row.value;
+            }
             refs.installAccessList.appendChild(dt);
             refs.installAccessList.appendChild(dd);
         });
         refs.installAccessCard.hidden = false;
     } else {
         refs.installAccessCard.hidden = true;
+        state.showKubeadminPassword = false;
     }
 }
 

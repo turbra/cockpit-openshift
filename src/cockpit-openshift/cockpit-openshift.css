@@ -730,6 +730,48 @@ body.is-resizing-yaml * {
     word-break: break-word;
 }
 
+.secret-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
+}
+
+.secret-field__value {
+    font-family: "RedHatMono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    letter-spacing: 0.04em;
+}
+
+.secret-field__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #d2d2d2;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #4f5255;
+    cursor: pointer;
+}
+
+.secret-field__toggle:hover {
+    background: #f0f0f0;
+    color: #151515;
+}
+
+.secret-field__toggle:focus-visible {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+}
+
+.secret-field__toggle svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
 .log-panel {
     margin-top: 16px;
     border: 1px solid #d2d2d2;
