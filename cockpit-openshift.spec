@@ -40,4 +40,3 @@ install -m 0644 README.md %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 %files
 %license LICENSE
 %{_datadir}/cockpit/cockpit-openshift/
-
