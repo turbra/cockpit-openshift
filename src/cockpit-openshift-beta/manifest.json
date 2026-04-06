@@ -1,0 +1,30 @@
+{
+    "name": "cockpit-openshift-beta",
+    "requires": {
+        "cockpit": "219"
+    },
+    "menu": {
+        "index": {
+            "label": "Clusters List (Beta)",
+            "path": "index.html",
+            "order": 16,
+            "keywords": [
+                {
+                    "matches": [
+                        "openshift",
+                        "installer",
+                        "install",
+                        "wizard",
+                        "on-prem",
+                        "assisted",
+                        "local",
+                        "sno",
+                        "compact",
+                        "cluster"
+                    ]
+                }
+            ]
+        }
+    },
+    "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+}

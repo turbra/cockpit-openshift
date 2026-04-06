@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Cluster overview</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="cockpit-openshift.css" />
+    <script src="../base1/cockpit.js"></script>
+</head>
+<body class="pf-v6-m-tabular-nums" data-page="overview">
+    <div id="app" class="console-page">
+        <header class="page-header">
+            <div class="page-header__copy">
+                <div class="console-eyebrow">Local assisted install and fleet management</div>
+                <h1 id="cluster-page-title" class="console-title">Cluster overview</h1>
+                <p id="cluster-page-subtitle" class="console-subtitle">
+                    Inventory details, operational context, and cluster-specific actions for this local KVM deployment.
+                </p>
+            </div>
+            <div class="page-header__actions">
+                <a id="open-console-link" class="action-button action-button--primary" href="#" target="_blank" rel="noopener noreferrer">Open console</a>
+                <div class="page-action-menu">
+                    <button id="overview-actions-button" class="action-button action-button--secondary" type="button" aria-haspopup="true" aria-expanded="false">Actions</button>
+                    <div id="overview-actions-menu" class="action-menu" hidden></div>
+                </div>
+                <button id="overview-refresh-button" class="action-button action-button--secondary" type="button">Refresh</button>
+            </div>
+        </header>
+
+        <nav class="page-subnav" aria-label="OpenShift clusters navigation">
+            <a class="page-subnav__link" href="index.html">Clusters List</a>
+            <a class="page-subnav__link" href="create.html">Create Cluster</a>
+        </nav>
+
+        <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+            <a class="breadcrumb-nav__link" href="index.html">Cluster List</a>
+            <span class="breadcrumb-nav__separator">/</span>
+            <span id="cluster-breadcrumb-name" class="breadcrumb-nav__current">Cluster overview</span>
+        </nav>
+
+        <nav class="overview-tabs" aria-label="Cluster detail tabs">
+            <button class="overview-tabs__tab overview-tabs__tab--active" type="button" data-tab="overview" aria-current="page">Overview</button>
+            <button class="overview-tabs__tab" type="button" data-tab="monitoring">Monitoring</button>
+            <button class="overview-tabs__tab" type="button" data-tab="access-control">Access control</button>
+            <button class="overview-tabs__tab" type="button" data-tab="cluster-history">Cluster history</button>
+            <button class="overview-tabs__tab" type="button" data-tab="support">Support</button>
+            <button class="overview-tabs__tab" type="button" data-tab="add-hosts">Add Hosts</button>
+        </nav>
+
+        <section id="cluster-missing" class="empty-state" hidden>
+            The requested cluster could not be found in the local inventory.
+        </section>
+
+        <section id="overview-tab-panel" class="tab-panel">
+            <div class="overview-layout">
+                <div class="overview-layout__main">
+                    <article class="page-card">
+                        <div class="page-card__header">
+                            <h2 class="section-title">Details</h2>
+                        </div>
+                        <dl id="cluster-details-list" class="details-list"></dl>
+                    </article>
+
+                    <article class="page-card">
+                        <div class="page-card__header">
+                            <h2 class="section-title">Advisor and recommendations</h2>
+                        </div>
+                        <ul id="advisor-list" class="content-list"></ul>
+                    </article>
+
+                    <article class="page-card">
+                        <div class="page-card__header">
+                            <h2 class="section-title">Operational notices and alerts</h2>
+                        </div>
+                        <ul id="notices-list" class="content-list"></ul>
+                    </article>
+                </div>
+
+                <aside class="overview-layout__side">
+                    <article class="summary-widget">
+                        <h2 class="section-title section-title--small">Cost and subscription summary</h2>
+                        <dl id="cost-summary-list" class="review-list review-list--compact"></dl>
+                    </article>
+
+                    <article class="summary-widget">
+                        <h2 class="section-title section-title--small">Lifecycle and support status</h2>
+                        <dl id="lifecycle-summary-list" class="review-list review-list--compact"></dl>
+                    </article>
+
+                    <article class="summary-widget">
+                        <h2 class="section-title section-title--small">Subscription settings</h2>
+                        <dl id="subscription-summary-list" class="review-list review-list--compact"></dl>
+                    </article>
+                </aside>
+            </div>
+        </section>
+
+        <section id="monitoring-tab-panel" class="tab-panel" hidden>
+            <article class="page-card">
+                <div class="page-card__header">
+                    <h2 class="section-title">Monitoring</h2>
+                </div>
+                <p class="body-copy">Monitoring integration is not wired yet for this local KVM flow. Use the OpenShift console and cluster operators for live metrics.</p>
+            </article>
+        </section>
+
+        <section id="access-control-tab-panel" class="tab-panel" hidden>
+            <article class="page-card">
+                <div class="page-card__header">
+                    <h2 class="section-title">Access control</h2>
+                </div>
+                <p class="body-copy">Cluster access remains governed by kubeconfig and cluster RBAC. Use the kubeconfig path in the overview details to continue with administrative setup.</p>
+            </article>
+        </section>
+
+        <section id="cluster-history-tab-panel" class="tab-panel" hidden>
+            <article class="page-card">
+                <div class="page-card__header">
+                    <h2 class="section-title">Cluster history</h2>
+                </div>
+                <ul id="history-list" class="content-list"></ul>
+            </article>
+        </section>
+
+        <section id="support-tab-panel" class="tab-panel" hidden>
+            <article class="page-card">
+                <div class="page-card__header">
+                    <h2 class="section-title">Support</h2>
+                </div>
+                <p class="body-copy">For assisted-install guidance, review the generated artifacts and recent installer output from the Create Cluster workflow.</p>
+            </article>
+        </section>
+
+        <section id="add-hosts-tab-panel" class="tab-panel" hidden>
+            <article class="page-card">
+                <div class="page-card__header">
+                    <h2 class="section-title">Add Hosts</h2>
+                </div>
+                <p class="body-copy">Host expansion is not automated yet. Reuse discovery-media generation and host-network YAML patterns from the Create Cluster flow when scaling out locally.</p>
+            </article>
+        </section>
+    </div>
+
+    <script src="cluster-overview.js"></script>
+</body>
+</html>
