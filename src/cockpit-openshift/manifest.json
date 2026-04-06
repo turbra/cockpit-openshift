@@ -15,6 +15,7 @@
                         "installer",
                         "install",
                         "wizard",
+                        "microshift",
                         "on-prem",
                         "assisted",
                         "local",

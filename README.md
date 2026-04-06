@@ -1,7 +1,7 @@
 # Cockpit OpenShift
 
-`cockpit-openshift` is a Cockpit-hosted local OpenShift installer for one
-KVM/libvirt host.
+`cockpit-openshift` is a Cockpit-hosted installer for local OpenShift clusters
+and host-based MicroShift deployments.
 
 [![License: GPL-3.0](https://img.shields.io/github/license/turbra/cockpit-openshift)](LICENSE)
 ![OpenShift 4.20](https://img.shields.io/badge/OpenShift-4.20-red)
@@ -11,10 +11,12 @@ KVM/libvirt host.
 
 - guided OpenShift SNO deployment
 - guided OpenShift compact deployment
+- guided MicroShift deployment to an existing RHEL host over SSH
 - self-contained local backend for installer artifacts, libvirt storage, and
   domain creation
 - rendered `install-config.yaml`, `agent-config.yaml`, guest plan, and
   `virt-install` plan review
+- rendered `config.yaml` and remote install plan review for MicroShift
 - deployment status, recent output, and deployed-cluster inventory
 - clean rebuild and destroy actions from the UI
 
@@ -47,6 +49,11 @@ KVM/libvirt host.
 > [!NOTE]
 > The user must provide a valid pull secret and SSH public key in the UI,
 > either by pasting them directly or by pointing at local files on the host.
+
+> [!NOTE]
+> The MicroShift path is intentionally separate from the OpenShift cluster
+> workflow. It follows the documented Red Hat Build of MicroShift RPM-based
+> install model on an existing RHEL host.
 
 ## Default Operating Model
 
@@ -88,9 +95,16 @@ Cockpit UI instead of manually running shell commands.
 sudo mkdir -p /usr/share/cockpit/cockpit-openshift
 sudo install -m 0644 src/cockpit-openshift/manifest.json /usr/share/cockpit/cockpit-openshift/
 sudo install -m 0644 src/cockpit-openshift/index.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/create.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/microshift.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/overview.html /usr/share/cockpit/cockpit-openshift/
 sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.css /usr/share/cockpit/cockpit-openshift/
 sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/microshift.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cluster-list.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cluster-overview.js /usr/share/cockpit/cockpit-openshift/
 sudo install -m 0755 src/cockpit-openshift/installer_backend.py /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0755 src/cockpit-openshift/microshift_backend.py /usr/share/cockpit/cockpit-openshift/
 ```
 
 Cockpit discovers the plugin on page load. No service restart is required.
@@ -140,6 +154,9 @@ sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-1.0.0-1.el10.noarch
 - the backend writes its own runtime state under
   `/var/lib/cockpit-openshift/`
 - the current validated path assumes static node networking for cluster bring-up
+- the MicroShift path assumes an existing RHEL 9 or RHEL 10 host that is
+  reachable over SSH with passwordless sudo and already has access to the
+  required package repositories
 
 > [!NOTE]
 > The plugin previews generated installer inputs and VM plans directly in the
@@ -149,6 +166,8 @@ sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-1.0.0-1.el10.noarch
 
 - `src/cockpit-openshift/`
   - Cockpit runtime assets and backend helper
+- `docs/microshift-support.md`
+  - MicroShift architecture notes, reference mapping, and known gaps
 - `build-rpm.sh`
   - local RPM build entrypoint
 - `cockpit-openshift.spec`

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Install MicroShift</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="cockpit-openshift.css" />
+    <script src="../base1/cockpit.js"></script>
+</head>
+<body class="pf-v6-m-tabular-nums" data-page="microshift">
+    <div id="app" class="console-page">
+        <header class="page-header">
+            <div class="page-header__copy">
+                <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+                    <a class="breadcrumb-nav__link" href="index.html">OpenShift</a>
+                    <span class="breadcrumb-nav__separator">/</span>
+                    <span class="breadcrumb-nav__current">Install MicroShift</span>
+                </nav>
+                <div class="console-eyebrow">Single-node edge deployment</div>
+                <h1 class="console-title">Install MicroShift</h1>
+                <p class="console-subtitle">
+                    Guided RPM-based MicroShift deployment for an existing RHEL host, aligned to the Red Hat Build of MicroShift installation model.
+                </p>
+            </div>
+            <div class="page-header__actions">
+                <a class="wizard-doc-link" href="https://docs.redhat.com/en/documentation/red_hat_build_of_microshift/4.21/html-single/getting_ready_to_install_microshift/index" target="_blank" rel="noopener noreferrer">
+                    MicroShift installation guide
+                </a>
+            </div>
+        </header>
+
+        <section class="wizard-section wizard-section--standalone">
+            <div class="wizard-shell__header">
+                <div class="wizard-shell__copy">
+                    <button id="back-to-clusters-button" class="link-button" type="button">Back to deployments</button>
+                    <h2 class="wizard-shell__title">MicroShift host deployment</h2>
+                    <p class="wizard-shell__subtitle">
+                        Prepare an existing RHEL host, push the MicroShift configuration, install the RPMs, and validate the single-node deployment.
+                    </p>
+                </div>
+                <div class="wizard-shell__actions">
+                    <label id="review-yaml-toggle-wrap" class="view-toggle" for="review-yaml-toggle">
+                        <span class="view-toggle__label">YAML</span>
+                        <span class="switch-control">
+                            <input id="review-yaml-toggle" type="checkbox" />
+                            <span class="switch-slider" aria-hidden="true"></span>
+                        </span>
+                    </label>
+                    <div id="wizard-summary" class="summary-chip wizard-shell__summary">New MicroShift deployment</div>
+                </div>
+            </div>
+
+            <div id="wizard-workspace" class="wizard-workspace">
+                <div class="wizard-layout">
+                    <aside class="wizard-sidebar" aria-label="MicroShift installer steps">
+                        <ol id="step-list" class="wizard-steps"></ol>
+                    </aside>
+
+                    <main class="wizard-main">
+                        <section class="wizard-card">
+                            <div class="wizard-card__header wizard-card__header--rhcc">
+                                <div>
+                                    <h3 id="step-title" class="wizard-card__title">Deployment details</h3>
+                                    <p id="step-description" class="wizard-card__description"></p>
+                                </div>
+                            </div>
+
+                            <section id="step-1" class="step-panel">
+                                <div class="form-grid">
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Target host access</h4>
+                                        <div class="form-field" id="deployment-name-field">
+                                            <label class="field-label" for="deployment-name">Deployment name <span class="required-marker">*</span></label>
+                                            <input id="deployment-name" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="microshift-version-field">
+                                            <label class="field-label" for="microshift-version">MicroShift version <span class="required-marker">*</span></label>
+                                            <select id="microshift-version" class="select-input">
+                                                <option selected>4.21</option>
+                                                <option>4.20</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-field" id="host-address-field">
+                                            <label class="field-label" for="host-address">Target host address <span class="required-marker">*</span></label>
+                                            <input id="host-address" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="ssh-port-field">
+                                            <label class="field-label" for="ssh-port">SSH port <span class="required-marker">*</span></label>
+                                            <input id="ssh-port" class="text-input" type="number" min="1" max="65535" />
+                                        </div>
+                                        <div class="form-field" id="ssh-user-field">
+                                            <label class="field-label" for="ssh-user">SSH user <span class="required-marker">*</span></label>
+                                            <input id="ssh-user" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="ssh-private-key-file-field">
+                                            <label class="field-label" for="ssh-private-key-file">SSH private key file <span class="required-marker">*</span></label>
+                                            <input id="ssh-private-key-file" class="text-input" type="text" autocomplete="off" />
+                                            <div class="field-helper">The Cockpit host must be able to SSH to the target host and run <code>sudo -n</code> without prompting.</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Registry access</h4>
+                                        <div class="form-field" id="pull-secret-value-field">
+                                            <label class="field-label" for="pull-secret-value">Pull secret <span class="required-marker">*</span></label>
+                                            <textarea id="pull-secret-value" class="text-input text-input--multiline" spellcheck="false"></textarea>
+                                        </div>
+                                        <div class="form-field" id="pull-secret-file-field">
+                                            <label class="field-label" for="pull-secret-file">Pull secret file</label>
+                                            <input id="pull-secret-file" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="read-only-note">
+                                            <div class="read-only-note__title">Supported installation model</div>
+                                            <div class="body-copy">This flow assumes the target host already has access to the Red Hat package repositories required for <code>microshift</code> and <code>openshift-clients</code>.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="step-2" class="step-panel" hidden>
+                                <div class="ai-inline-alert" role="status">
+                                    The Red Hat installation model expects an existing RHEL host with package access, passwordless sudo, and optional firewall hardening. The preflight step checks those conditions over SSH before installation starts.
+                                </div>
+                                <div class="form-grid">
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Host preparation</h4>
+                                        <label class="microshift-check">
+                                            <input id="manage-firewall" type="checkbox" checked />
+                                            <span>
+                                                <span class="choice-option__title">Manage firewalld during installation</span>
+                                                <span class="choice-option__helper">Install firewalld if needed and configure the documented MicroShift pod-network and service exposure rules.</span>
+                                            </span>
+                                        </label>
+                                        <label class="microshift-check">
+                                            <input id="expose-api-port" type="checkbox" checked />
+                                            <span>
+                                                <span class="choice-option__title">Expose the MicroShift API on 6443/TCP</span>
+                                                <span class="choice-option__helper">Required when you want to reach the API from outside the host.</span>
+                                            </span>
+                                        </label>
+                                        <label class="microshift-check">
+                                            <input id="expose-ingress" type="checkbox" checked />
+                                            <span>
+                                                <span class="choice-option__title">Expose router ports 80/443</span>
+                                                <span class="choice-option__helper">Useful when applications will be served through the default OpenShift router.</span>
+                                            </span>
+                                        </label>
+                                        <label class="microshift-check">
+                                            <input id="expose-nodeports" type="checkbox" />
+                                            <span>
+                                                <span class="choice-option__title">Expose the NodePort range</span>
+                                                <span class="choice-option__helper">Only enable this when workloads need direct NodePort access.</span>
+                                            </span>
+                                        </label>
+                                        <label class="microshift-check">
+                                            <input id="expose-mdns" type="checkbox" />
+                                            <span>
+                                                <span class="choice-option__title">Expose mDNS</span>
+                                                <span class="choice-option__helper">Enable this only when route discovery over mDNS is explicitly required.</span>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Preflight expectations</h4>
+                                        <ul class="inline-list">
+                                            <li>The target host must be RHEL 9 or RHEL 10.</li>
+                                            <li>The target host must have the <code>microshift</code> and <code>openshift-clients</code> RPMs available through configured repositories.</li>
+                                            <li>The SSH user must have non-interactive sudo.</li>
+                                            <li>The plugin will write <code>/etc/crio/openshift-pull-secret</code> and <code>/etc/microshift/config.yaml</code> on the target host.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="step-3" class="step-panel" hidden>
+                                <div class="form-grid">
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Core MicroShift configuration</h4>
+                                        <div class="form-field" id="base-domain-field">
+                                            <label class="field-label" for="base-domain">Base domain <span class="required-marker">*</span></label>
+                                            <input id="base-domain" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="hostname-override-field">
+                                            <label class="field-label" for="hostname-override">Hostname override</label>
+                                            <input id="hostname-override" class="text-input" type="text" autocomplete="off" />
+                                            <div class="field-helper">If left empty, the target host's current hostname is used for the external kubeconfig path and serving certificates.</div>
+                                        </div>
+                                        <div class="form-field" id="node-ip-field">
+                                            <label class="field-label" for="node-ip">Node IP</label>
+                                            <input id="node-ip" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field">
+                                            <label class="field-label" for="subject-alt-names">API subject alternative names</label>
+                                            <textarea id="subject-alt-names" class="text-input text-input--multiline text-input--compact" spellcheck="false"></textarea>
+                                            <div class="field-helper">Enter one DNS name or IP per line when external API access needs additional certificate names.</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="info-card">
+                                        <h4 class="section-title section-title--small">Networking defaults</h4>
+                                        <div class="form-field" id="cluster-network-field">
+                                            <label class="field-label" for="cluster-network">Cluster network CIDR <span class="required-marker">*</span></label>
+                                            <input id="cluster-network" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="service-network-field">
+                                            <label class="field-label" for="service-network">Service network CIDR <span class="required-marker">*</span></label>
+                                            <input id="service-network" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="service-nodeport-range-field">
+                                            <label class="field-label" for="service-nodeport-range">Service NodePort range <span class="required-marker">*</span></label>
+                                            <input id="service-nodeport-range" class="text-input" type="text" autocomplete="off" />
+                                        </div>
+                                        <div class="form-field" id="log-level-field">
+                                            <label class="field-label" for="log-level">Log level</label>
+                                            <select id="log-level" class="select-input">
+                                                <option selected>Normal</option>
+                                                <option>Debug</option>
+                                                <option>Trace</option>
+                                                <option>TraceAll</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="step-4" class="step-panel" hidden>
+                                <details class="review-accordion">
+                                    <summary class="review-accordion__summary">
+                                        <div>
+                                            <h4 class="section-title section-title--small">Review deployment details</h4>
+                                            <p class="field-helper">Inspect the target host, prerequisite choices, and rendered MicroShift configuration before installation starts.</p>
+                                        </div>
+                                        <span class="review-accordion__hint">Expand</span>
+                                    </summary>
+                                    <div class="review-accordion__content">
+                                        <div id="review-sections" class="review-sections"></div>
+                                    </div>
+                                </details>
+
+                                <div class="info-card step-status-card">
+                                    <h4 class="section-title">Execution status</h4>
+                                    <div id="preflight-alert" class="validation-alert" hidden>
+                                        <div class="validation-alert__title">The MicroShift deployment request is not ready</div>
+                                        <div id="preflight-alert-body" class="validation-alert__body"></div>
+                                    </div>
+                                    <div class="info-card__body">
+                                        <div id="job-status-summary" class="body-copy">No deployment has been started yet.</div>
+                                        <div id="job-current-task" class="field-helper"></div>
+                                    </div>
+                                    <div id="install-access-card" class="info-card__body" hidden>
+                                        <h5 class="section-title section-title--small">Access details</h5>
+                                        <dl id="install-access-list" class="review-list review-list--compact"></dl>
+                                    </div>
+                                </div>
+
+                                <div id="job-log-panel" class="log-panel log-panel--monitor">
+                                    <div class="log-panel__header">
+                                        <h4 class="section-title">Execution log and validation output</h4>
+                                    </div>
+                                    <pre id="job-log" class="log-output">No log output yet.</pre>
+                                </div>
+                            </section>
+
+                            <div id="validation-alert" class="validation-alert" role="alert" aria-live="polite" hidden>
+                                <div class="validation-alert__title">Provided MicroShift configuration is not valid</div>
+                                <div id="validation-alert-body" class="validation-alert__body"></div>
+                            </div>
+                        </section>
+
+                        <footer class="wizard-footer">
+                            <div class="wizard-footer__primary">
+                                <button id="next-button" class="action-button action-button--primary" type="button">Next</button>
+                                <button id="deploy-button" class="action-button action-button--primary" type="button" hidden>Install MicroShift</button>
+                                <button id="back-button" class="action-button action-button--secondary" type="button">Back</button>
+                                <button id="cancel-button" class="action-button action-button--secondary" type="button">Cancel</button>
+                                <button id="stop-button" class="action-button action-button--secondary action-button--danger" type="button" hidden>Stop</button>
+                            </div>
+                            <div class="wizard-footer__utility"></div>
+                        </footer>
+                    </main>
+                </div>
+
+                <div id="yaml-divider" class="yaml-divider" hidden aria-hidden="true"></div>
+
+                <aside id="yaml-pane" class="yaml-pane" hidden>
+                    <div class="yaml-pane__header">
+                        <div>
+                            <h3 class="yaml-pane__title">Generated configuration and install plan</h3>
+                            <p class="body-copy">Review the rendered MicroShift configuration, request payload, and remote install script.</p>
+                        </div>
+                        <div class="artifact-actions">
+                            <button id="artifact-copy-button" class="action-button action-button--secondary" type="button">Copy</button>
+                            <button id="artifact-download-button" class="action-button action-button--secondary" type="button">Download</button>
+                        </div>
+                    </div>
+                    <div id="artifact-tabs" class="artifact-tabs yaml-pane__tabs"></div>
+                    <div id="artifact-empty" class="yaml-empty-state">Artifact preview will appear here.</div>
+                    <div id="artifact-editor" class="yaml-editor" hidden>
+                        <div id="artifact-editor-scroll" class="yaml-editor__scroll">
+                            <div id="artifact-line-numbers" class="yaml-editor__gutter" aria-hidden="true"></div>
+                            <pre id="artifact-content" class="yaml-editor__code"></pre>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+    </div>
+
+    <script src="microshift.js"></script>
+</body>
+</html>
