@@ -1367,6 +1367,13 @@ function renderPostInstall() {
         : "export KUBECONFIG=" + kubeconfigPath;
     refs.postInstallNodesCommand.textContent = "oc get nodes";
     refs.postInstallConsoleUrl.textContent = consoleUrl;
+    if (consoleUrl === "Not available yet") {
+        refs.postInstallConsoleUrl.removeAttribute("href");
+        refs.postInstallConsoleUrl.setAttribute("aria-disabled", "true");
+    } else {
+        refs.postInstallConsoleUrl.href = consoleUrl;
+        refs.postInstallConsoleUrl.removeAttribute("aria-disabled");
+    }
 
     if (context.installAccess && context.installAccess.kubeadminPassword) {
         refs.postInstallLoginHint.textContent = "Log in as kubeadmin with the password captured during install.";

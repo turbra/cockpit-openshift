@@ -78,6 +78,12 @@ pre {
     text-decoration: underline;
 }
 
+.wizard-doc-link[aria-disabled="true"] {
+    color: #6a6e73;
+    pointer-events: none;
+    text-decoration: none;
+}
+
 .link-button {
     padding: 0;
     border: 0;
