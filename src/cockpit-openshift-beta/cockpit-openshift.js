@@ -558,6 +558,10 @@ function overallErrors() {
     }
 
     state.backendErrors.forEach(function (entry) {
+        entry = String(entry || "").trim();
+        if (!entry) {
+            return;
+        }
         if (!seen[entry]) {
             seen[entry] = true;
             all.push(entry);
@@ -603,8 +607,9 @@ function renderFieldValidation() {
 function renderValidationAlert() {
     var errors = currentStepErrors();
     var reviewErrors = overallErrors();
+    var hasRunningDeployment = state.job && state.job.running && state.job.state && state.job.state.mode !== "destroy";
     var shouldShowStepAlert = errors.length > 0 && state.currentStep !== 7;
-    var shouldShowReviewAlert = state.currentStep === 7 && reviewErrors.length > 0;
+    var shouldShowReviewAlert = state.currentStep === 7 && !hasRunningDeployment && reviewErrors.length > 0;
 
     refs.validationAlert.hidden = !(shouldShowStepAlert || shouldShowReviewAlert);
     if (shouldShowReviewAlert) {
