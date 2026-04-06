@@ -721,6 +721,25 @@ pre {
     margin-top: 8px;
 }
 
+.microshift-check {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 12px 14px;
+    border: 1px solid #d2d2d2;
+    border-radius: 10px;
+    background: #fafafa;
+}
+
+.microshift-check + .microshift-check {
+    margin-top: 10px;
+}
+
+.microshift-check input {
+    margin-top: 4px;
+}
+
 .preview-badge {
     display: inline-flex;
     align-items: center;
@@ -1265,6 +1284,14 @@ body.is-resizing-yaml * {
     margin-bottom: 12px;
 }
 
+.fleet-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
 .fleet-toolbar__search {
     flex: 1 1 280px;
     min-width: 220px;
@@ -1806,6 +1833,10 @@ body.is-resizing-yaml * {
     }
 
     .fleet-toggle {
+        margin-left: 0;
+    }
+
+    .fleet-toolbar__actions {
         margin-left: 0;
     }
 
