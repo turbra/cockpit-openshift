@@ -41,6 +41,7 @@ var pollTimer = null;
 var artifactPreviewTimer = null;
 var lastArtifactPreviewKey = "";
 var pageContext = "";
+var clusterIdFromUrl = "";
 
 function defaultHostNames(count) {
     if (count === 1) {
@@ -220,6 +221,28 @@ function draftClusterId() {
         return "";
     }
     return state.clusterName.trim() + "." + state.baseDomain.trim();
+}
+
+function queryClusterId() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get("clusterId") || "";
+}
+
+function applyClusterToState(cluster) {
+    if (!cluster) {
+        return;
+    }
+    state.clusterName = cluster.clusterName || state.clusterName;
+    state.baseDomain = cluster.baseDomain || state.baseDomain;
+    if (cluster.openshiftVersion) {
+        state.openshiftVersion = cluster.openshiftVersion;
+    }
+    if (cluster.topology === "sno") {
+        state.controlPlaneCount = 1;
+    } else if (cluster.topology === "compact") {
+        state.controlPlaneCount = 3;
+    }
+    syncHostCount();
 }
 
 function discoveryMediaPath() {
@@ -615,8 +638,9 @@ function renderValidationAlert() {
     var errors = currentStepErrors();
     var reviewErrors = overallErrors();
     var hasRunningDeployment = state.job && state.job.running && state.job.state && state.job.state.mode !== "destroy";
+    var hasSucceededDeployment = state.job && state.job.state && state.job.state.mode !== "destroy" && state.job.state.status === "succeeded";
     var shouldShowStepAlert = errors.length > 0 && state.currentStep !== 7;
-    var shouldShowReviewAlert = state.currentStep === 7 && !hasRunningDeployment && reviewErrors.length > 0;
+    var shouldShowReviewAlert = state.currentStep === 7 && !hasRunningDeployment && !hasSucceededDeployment && reviewErrors.length > 0;
 
     refs.validationAlert.hidden = !(shouldShowStepAlert || shouldShowReviewAlert);
     if (shouldShowReviewAlert) {
@@ -1276,11 +1300,16 @@ function createPasswordValue(password) {
     wrapper.className = "secret-field";
     value.className = "secret-field__value";
     value.textContent = displayValue;
+    value.setAttribute("aria-label", state.showKubeadminPassword ? "Kubeadmin password visible" : "Kubeadmin password hidden");
+
     toggle.type = "button";
     toggle.className = "secret-field__toggle";
     toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("aria-pressed", state.showKubeadminPassword ? "true" : "false");
     toggle.title = label;
-    toggle.textContent = state.showKubeadminPassword ? "Hide" : "Show";
+    toggle.innerHTML = state.showKubeadminPassword
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.12 5.64 3.4 4.36l16.24 16.24-1.28 1.28-3.15-3.15a12.55 12.55 0 0 1-3.21.43c-5.52 0-10.27-3.28-12-7.91a12.96 12.96 0 0 1 4.82-5.94zm6.11 6.11a4 4 0 0 0 5.01 5.01zm8.96 2.56 2.37 2.37A13.1 13.1 0 0 0 24 11.25c-1.73-4.63-6.48-7.91-12-7.91a12.4 12.4 0 0 0-4.07.68l2.02 2.02A10.14 10.14 0 0 1 12 5.84c4.1 0 7.66 2.34 9.19 5.41a10.79 10.79 0 0 1-4 5.06zM12 8a3.97 3.97 0 0 0-1.4.25l5.15 5.15A4 4 0 0 0 12 8z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.34c4.1 0 7.66 2.34 9.19 5.41-1.53 3.07-5.09 5.41-9.19 5.41s-7.66-2.34-9.19-5.41C4.34 7.68 7.9 5.34 12 5.34m0-2C6.48 3.34 1.73 6.62 0 11.25c1.73 4.63 6.48 7.91 12 7.91s10.27-3.28 12-7.91c-1.73-4.63-6.48-7.91-12-7.91m0 5a3.91 3.91 0 1 1-3.91 3.91A3.92 3.92 0 0 1 12 8.34m0-2A5.91 5.91 0 1 0 17.91 12 5.92 5.92 0 0 0 12 6.34"/></svg>';
     toggle.addEventListener("click", function () {
         state.showKubeadminPassword = !state.showKubeadminPassword;
         renderJob();
@@ -1291,41 +1320,56 @@ function createPasswordValue(password) {
     return wrapper;
 }
 
+function createLinkValue(url) {
+    var link = document.createElement("a");
+    link.className = "wizard-doc-link";
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = url;
+    return link;
+}
+
 function renderJob() {
+    var installAccess = null;
+
     if (!state.job) {
         refs.jobStatusSummary.textContent = "No deployment has been started yet.";
         refs.jobCurrentTask.textContent = "";
         refs.jobLog.textContent = "No log output yet.";
-        refs.installAccessCard.hidden = true;
         refs.installAccessList.innerHTML = "";
-        state.showKubeadminPassword = false;
-        return;
+    } else {
+        var action = state.job.state && state.job.state.mode === "destroy" ? "Destroy" : "Deployment";
+        var summary = action + " status: " + (state.job.state.status || "unknown");
+        if (state.job.state.clusterName && state.job.state.baseDomain) {
+            summary += " for " + state.job.state.clusterName + "." + state.job.state.baseDomain;
+        }
+        refs.jobStatusSummary.textContent = summary;
+        refs.jobCurrentTask.textContent = state.job.currentTask || "";
+        refs.jobLog.textContent = state.job.logTail && state.job.logTail.length
+            ? state.job.logTail.join("\n")
+            : "No log output yet.";
+        installAccess = state.job.state ? state.job.state.installAccess : null;
     }
-
-    var action = state.job.state && state.job.state.mode === "destroy" ? "Destroy" : "Deployment";
-    var summary = action + " status: " + (state.job.state.status || "unknown");
-    if (state.job.state.clusterName && state.job.state.baseDomain) {
-        summary += " for " + state.job.state.clusterName + "." + state.job.state.baseDomain;
-    }
-    refs.jobStatusSummary.textContent = summary;
-    refs.jobCurrentTask.textContent = state.job.currentTask || "";
-    refs.jobLog.textContent = state.job.logTail && state.job.logTail.length
-        ? state.job.logTail.join("\n")
-        : "No log output yet.";
 
     refs.installAccessList.innerHTML = "";
-    if (state.job.state && state.job.state.installAccess) {
+    if (!installAccess) {
+        installAccess = postInstallContext().cluster ? postInstallContext().cluster.installAccess : null;
+    }
+    if (installAccess) {
         [
-            { label: "Console endpoint", value: state.job.state.installAccess.consoleUrl || "Not available" },
-            { label: "Kubeconfig", value: state.job.state.installAccess.kubeconfigPath || "Not available" },
-            { label: "Username", value: state.job.state.installAccess.kubeadminUsername || "Not available" },
-            { label: "Password", value: state.job.state.installAccess.kubeadminPassword || "Not available", password: true }
+            { label: "Console endpoint", value: installAccess.consoleUrl || "Not available", link: true },
+            { label: "Kubeconfig", value: installAccess.kubeconfigPath || "Not available" },
+            { label: "Username", value: installAccess.kubeadminUsername || "Not available" },
+            { label: "Password", value: installAccess.kubeadminPassword || "Not available", password: true }
         ].forEach(function (row) {
             var dt = document.createElement("dt");
             var dd = document.createElement("dd");
             dt.textContent = row.label;
             if (row.password && row.value !== "Not available") {
                 dd.appendChild(createPasswordValue(row.value));
+            } else if (row.link && row.value !== "Not available") {
+                dd.appendChild(createLinkValue(row.value));
             } else {
                 dd.textContent = row.value;
             }
@@ -1344,6 +1388,9 @@ function postInstallContext() {
         return entry.clusterId === draftClusterId();
     });
     var installAccess = state.job && state.job.state ? state.job.state.installAccess : null;
+    if (!installAccess && cluster && cluster.installAccess) {
+        installAccess = cluster.installAccess;
+    }
     return {
         cluster: cluster,
         installAccess: installAccess
@@ -1355,9 +1402,6 @@ function renderPostInstall() {
     var kubeconfigPath = context.installAccess && context.installAccess.kubeconfigPath
         ? context.installAccess.kubeconfigPath
         : (context.cluster ? context.cluster.kubeconfigPath : "Not available yet");
-    var consoleUrl = context.installAccess && context.installAccess.consoleUrl
-        ? context.installAccess.consoleUrl
-        : (context.cluster ? context.cluster.consoleUrl : "Not available yet");
 
     refs.discoveryMediaPath.textContent = discoveryMediaPath();
     refs.postInstallPanel.hidden = !(context.installAccess || (context.cluster && context.cluster.health && context.cluster.health.available));
@@ -1366,22 +1410,6 @@ function renderPostInstall() {
         ? "export KUBECONFIG=<kubeconfig-path>"
         : "export KUBECONFIG=" + kubeconfigPath;
     refs.postInstallNodesCommand.textContent = "oc get nodes";
-    refs.postInstallConsoleUrl.textContent = consoleUrl;
-    if (consoleUrl === "Not available yet") {
-        refs.postInstallConsoleUrl.removeAttribute("href");
-        refs.postInstallConsoleUrl.setAttribute("aria-disabled", "true");
-    } else {
-        refs.postInstallConsoleUrl.href = consoleUrl;
-        refs.postInstallConsoleUrl.removeAttribute("aria-disabled");
-    }
-
-    if (context.installAccess && context.installAccess.kubeadminPassword) {
-        refs.postInstallLoginHint.textContent = "Log in as kubeadmin with the password captured during install.";
-    } else if (context.cluster && context.cluster.health && context.cluster.health.available) {
-        refs.postInstallLoginHint.textContent = "Use the kubeadmin credentials stored in the generated auth directory.";
-    } else {
-        refs.postInstallLoginHint.textContent = "Complete the install to retrieve the kubeadmin credentials.";
-    }
 }
 
 function renderFooter() {
@@ -1642,6 +1670,20 @@ function loadArtifactsInternal(mode, silent, key) {
 function loadClusters() {
     return backendCommand("clusters").then(function (result) {
         state.clusters = result.clusters || [];
+        if (
+            clusterIdFromUrl &&
+            (!draftClusterId() || draftClusterId() !== clusterIdFromUrl) &&
+            !(state.job && state.job.state && state.job.state.clusterName)
+        ) {
+            var selectedCluster = state.clusters.find(function (entry) {
+                return entry.clusterId === clusterIdFromUrl;
+            });
+            if (selectedCluster) {
+                applyClusterToState(selectedCluster);
+                state.wizardOpen = true;
+                state.currentStep = 7;
+            }
+        }
         render();
         return result;
     }).catch(function (error) {
@@ -2057,8 +2099,6 @@ function cacheRefs() {
     refs.postInstallKubeconfig = document.getElementById("post-install-kubeconfig");
     refs.postInstallKubeconfigCommand = document.getElementById("post-install-kubeconfig-command");
     refs.postInstallNodesCommand = document.getElementById("post-install-nodes-command");
-    refs.postInstallConsoleUrl = document.getElementById("post-install-console-url");
-    refs.postInstallLoginHint = document.getElementById("post-install-login-hint");
 
     refs.backButton = document.getElementById("back-button");
     refs.nextButton = document.getElementById("next-button");
@@ -2070,6 +2110,7 @@ function cacheRefs() {
 
 document.addEventListener("DOMContentLoaded", function () {
     pageContext = document.body.getAttribute("data-page") || "";
+    clusterIdFromUrl = queryClusterId();
     cacheRefs();
     if (pageContext === "create") {
         state.wizardOpen = true;

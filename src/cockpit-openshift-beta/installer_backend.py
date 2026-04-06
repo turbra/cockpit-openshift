@@ -1083,6 +1083,21 @@ def collect_install_access(request: dict, paths: dict) -> dict:
     return access
 
 
+def cluster_install_access(cluster_name: str, base_domain: str, work_dir: Path) -> dict:
+    install_dir = work_dir / "generated" / "ocp"
+    password_file = install_dir / "auth" / "kubeadmin-password"
+    kubeconfig_path = install_dir / "auth" / "kubeconfig"
+    access = {
+        "consoleUrl": f"https://console-openshift-console.apps.{cluster_name}.{base_domain}",
+        "kubeconfigPath": str(kubeconfig_path),
+        "kubeadminUsername": "kubeadmin",
+        "kubeadminPassword": "",
+    }
+    if password_file.exists():
+        access["kubeadminPassword"] = password_file.read_text(encoding="utf-8").strip()
+    return access
+
+
 def cluster_domains(cluster_id: str) -> list[str]:
     suffix = f".{cluster_id}"
     return [name for name in virsh_domain_names() if name.endswith(suffix)]
@@ -1205,6 +1220,7 @@ def discover_clusters() -> list[dict]:
                 "nodeVcpus": metadata["nodeVcpus"],
                 "memoryMb": metadata["memoryMb"],
                 "operators": metadata["operators"],
+                "installAccess": cluster_install_access(cluster_name, base_domain, work_dir),
             }
         )
     return clusters

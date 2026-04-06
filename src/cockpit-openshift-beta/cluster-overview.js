@@ -198,7 +198,7 @@ function renderActions(cluster) {
     }
 
     addAction("Open install workflow", function () {
-        window.location.href = "create.html";
+        window.location.href = "create.html?clusterId=" + encodeURIComponent(cluster.clusterId);
     }, false);
 
     addAction("Copy kubeconfig path", function () {
