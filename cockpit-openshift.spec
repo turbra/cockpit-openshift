@@ -30,25 +30,17 @@ The current release provides:
 
 %install
 mkdir -p %{buildroot}%{_datadir}/cockpit/cockpit-openshift
-mkdir -p %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta
 install -m 0644 src/cockpit-openshift/manifest.json %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0644 src/cockpit-openshift/index.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/create.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/overview.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0644 src/cockpit-openshift/cockpit-openshift.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/cluster-list.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
+install -m 0644 src/cockpit-openshift/cluster-overview.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0644 src/cockpit-openshift/cockpit-openshift.css %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0755 src/cockpit-openshift/installer_backend.py %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
 install -m 0644 README.md %{buildroot}%{_datadir}/cockpit/cockpit-openshift/
-install -m 0644 src/cockpit-openshift-beta/manifest.json %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/index.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/create.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/overview.html %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/cockpit-openshift.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/cluster-list.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/cluster-overview.js %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 src/cockpit-openshift-beta/cockpit-openshift.css %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0755 src/cockpit-openshift-beta/installer_backend.py %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
-install -m 0644 README.md %{buildroot}%{_datadir}/cockpit/cockpit-openshift-beta/
 
 %files
 %license LICENSE
 %{_datadir}/cockpit/cockpit-openshift/
-%{_datadir}/cockpit/cockpit-openshift-beta/

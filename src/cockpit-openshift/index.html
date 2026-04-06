@@ -1,372 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Install OpenShift</title>
+    <title>OpenShift clusters</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="cockpit-openshift.css" />
     <script src="../base1/cockpit.js"></script>
 </head>
-<body class="pf-v6-m-tabular-nums">
-    <div id="app" class="wizard-page">
-        <header class="wizard-header">
-            <div>
-                <h1 class="wizard-title">Install OpenShift</h1>
-                <a class="wizard-doc-link" href="https://docs.redhat.com/en/documentation/openshift_container_platform" target="_blank" rel="noopener noreferrer">
-                    OpenShift installation documentation
-                </a>
+<body class="pf-v6-m-tabular-nums" data-page="clusters">
+    <div id="app" class="console-page">
+        <header class="fleet-header">
+            <div class="fleet-header__main">
+                <nav class="breadcrumb-nav breadcrumb-nav--compact" aria-label="Breadcrumb">
+                    <span class="breadcrumb-nav__crumb">OpenShift</span>
+                    <span class="breadcrumb-nav__separator">/</span>
+                    <span class="breadcrumb-nav__crumb">Fleet management</span>
+                    <span class="breadcrumb-nav__separator">/</span>
+                    <span class="breadcrumb-nav__current">Clusters</span>
+                </nav>
+                <h1 class="fleet-title">Clusters</h1>
             </div>
-            <div class="wizard-header__actions">
-                <label class="view-toggle" for="yaml-toggle">
-                    <span class="view-toggle__label">YAML</span>
-                    <span class="switch-control">
-                        <input id="yaml-toggle" type="checkbox" />
-                        <span class="switch-slider" aria-hidden="true"></span>
-                    </span>
-                </label>
-            </div>
+            <button id="clusters-refresh-button" class="icon-button" type="button" aria-label="Refresh cluster inventory" title="Refresh">
+                <span aria-hidden="true">&#x21bb;</span>
+            </button>
         </header>
 
-        <section class="log-panel inventory-panel">
-            <div class="log-panel__header artifact-panel__header">
-                <div>
-                    <h2 class="section-title">Deployed clusters</h2>
-                    <p class="body-copy">Clusters currently discovered from this plugin's local runtime state.</p>
+        <nav class="fleet-tabs" aria-label="Cluster inventory views">
+            <button id="cluster-list-tab" class="fleet-tabs__tab fleet-tabs__tab--active" type="button" aria-current="page">Cluster List</button>
+        </nav>
+
+        <section class="fleet-panel">
+            <div class="fleet-toolbar" aria-label="Cluster inventory toolbar">
+                <div class="fleet-toolbar__search">
+                    <input id="clusters-search" class="text-input fleet-search-input" type="search" autocomplete="off" placeholder="Filter by name or ID..." aria-label="Filter by name or ID" />
                 </div>
-                <div class="artifact-actions">
-                    <button id="clusters-refresh-button" class="action-button action-button--secondary" type="button">Refresh</button>
+                <div class="fleet-toolbar__filter">
+                    <label class="fleet-toolbar__label" for="cluster-type-filter">Cluster type</label>
+                    <select id="cluster-type-filter" class="select-input fleet-filter-select">
+                        <option value="all">All clusters</option>
+                        <option value="compact">Compact</option>
+                        <option value="sno">Single node</option>
+                        <option value="unknown">Other</option>
+                    </select>
+                </div>
+                <a class="action-button action-button--primary fleet-toolbar__button" href="create.html">Create cluster</a>
+            </div>
+
+            <div class="inventory-table__meta fleet-table-meta">
+                <div id="clusters-result-count" class="field-helper">0 clusters</div>
+            </div>
+
+            <div id="clusters-empty" class="empty-state fleet-empty-state" hidden>
+                No clusters match the current filters.
+            </div>
+
+            <div class="inventory-table__shell fleet-table-shell">
+                <table class="inventory-table inventory-table--compact" aria-label="OpenShift cluster inventory">
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Created</th>
+                            <th scope="col">Version</th>
+                            <th scope="col">Provider</th>
+                            <th scope="col" class="inventory-table__actions-column" aria-label="Actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cluster-table-body"></tbody>
+                </table>
+            </div>
+
+            <div class="fleet-pagination" aria-label="Pagination controls">
+                <div id="pagination-summary" class="field-helper">0 - 0 of 0</div>
+                <div class="fleet-pagination__controls">
+                    <label class="fleet-pagination__page-size" for="page-size-select">
+                        <span class="fleet-toolbar__label">Rows per page</span>
+                        <select id="page-size-select" class="select-input fleet-page-size-select">
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </label>
+                    <button id="page-prev-button" class="icon-button icon-button--small" type="button" aria-label="Previous page" title="Previous page">
+                        <span aria-hidden="true">&#x2039;</span>
+                    </button>
+                    <button id="page-next-button" class="icon-button icon-button--small" type="button" aria-label="Next page" title="Next page">
+                        <span aria-hidden="true">&#x203a;</span>
+                    </button>
                 </div>
             </div>
-            <div id="clusters-list" class="clusters-list"></div>
         </section>
-
-        <div id="wizard-workspace" class="wizard-workspace">
-            <div class="wizard-layout">
-                <aside class="wizard-sidebar" aria-label="Wizard steps">
-                    <ol id="step-list" class="wizard-steps"></ol>
-                </aside>
-
-                <main class="wizard-main">
-                    <section class="wizard-card">
-                    <div class="wizard-card__header">
-                        <div>
-                            <h2 id="step-title" class="wizard-card__title">Cluster details</h2>
-                            <p id="step-description" class="wizard-card__description"></p>
-                        </div>
-                    </div>
-
-                    <section id="step-1" class="step-panel">
-                        <div class="wizard-card__controls">
-                            <span class="preview-badge">Technology Preview</span>
-                        </div>
-
-                        <form class="cluster-form" novalidate>
-                            <div class="form-field" id="cluster-name-field">
-                                <label class="field-label" for="cluster-name">Cluster name <span class="required-marker">*</span></label>
-                                <input id="cluster-name" class="text-input" type="text" autocomplete="off" aria-describedby="cluster-name-error" />
-                                <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
-                            </div>
-
-                            <div class="form-field" id="base-domain-field">
-                                <label class="field-label" for="base-domain">Base domain <span class="required-marker">*</span></label>
-                                <input id="base-domain" class="text-input" type="text" value="localhost.com" autocomplete="off" aria-describedby="base-domain-help" />
-                                <div id="base-domain-help" class="field-helper">
-                                    <div>This is the base domain and it cannot be changed after install.</div>
-                                    <div>DNS records must include the cluster name and be subdomains of the base domain.</div>
-                                    <div>Example final address format: <code>[Cluster Name].[domainname.com]</code></div>
-                                </div>
-                            </div>
-
-                            <div class="form-field">
-                                <label class="field-label" for="openshift-version">OpenShift version</label>
-                                <select id="openshift-version" class="select-input">
-                                    <option selected>OpenShift 4.21.7</option>
-                                    <option>OpenShift 4.21.6</option>
-                                    <option>OpenShift 4.20.15</option>
-                                </select>
-                            </div>
-
-                            <div class="form-field" id="cpu-architecture-field">
-                                <label class="field-label" for="cpu-architecture">CPU architecture</label>
-                                <select id="cpu-architecture" class="select-input">
-                                    <option selected>x86_64</option>
-                                    <option>aarch64</option>
-                                    <option>ppc64le</option>
-                                </select>
-                                <div class="field-helper">The current backend supports <code>x86_64</code> only.</div>
-                            </div>
-
-                            <div class="form-field">
-                                <label class="field-label field-label--with-help" for="control-plane-count">
-                                    <span>Number of control plane nodes</span>
-                                    <button type="button" class="help-button" aria-label="Control plane node count help" title="One control plane node maps to the SNO path. Three control plane nodes map to the compact path.">?</button>
-                                </label>
-                                <select id="control-plane-count" class="select-input">
-                                    <option value="3" selected>3 (highly available cluster)</option>
-                                    <option value="1">1 (single-node control plane)</option>
-                                </select>
-                            </div>
-
-                            <fieldset class="form-field fieldset-group" id="hosts-network-field">
-                                <legend class="field-label">Hosts' network configuration</legend>
-                                <label class="radio-label" for="network-dhcp">
-                                    <input id="network-dhcp" type="radio" name="hosts_network_configuration" value="dhcp" checked />
-                                    <span>DHCP only</span>
-                                </label>
-                                <label class="radio-label" for="network-static">
-                                    <input id="network-static" type="radio" name="hosts_network_configuration" value="static" />
-                                    <span>Static IP, bridges, and bonds</span>
-                                </label>
-                                <div class="field-helper">The current local backend requires static node networking.</div>
-                            </fieldset>
-
-                            <fieldset class="form-field fieldset-group" id="disk-encryption-field">
-                                <legend class="field-label">Encryption of installation disks</legend>
-                                <div class="encryption-group">
-                                    <label class="switch-field switch-field--stacked" for="encrypt-control-plane">
-                                        <span class="switch-label">Control plane nodes</span>
-                                        <span class="switch-control">
-                                            <input id="encrypt-control-plane" type="checkbox" />
-                                            <span class="switch-slider" aria-hidden="true"></span>
-                                        </span>
-                                    </label>
-                                    <label class="switch-field switch-field--stacked" for="encrypt-workers">
-                                        <span class="switch-label">Workers</span>
-                                        <span class="switch-control">
-                                            <input id="encrypt-workers" type="checkbox" />
-                                            <span class="switch-slider" aria-hidden="true"></span>
-                                        </span>
-                                    </label>
-                                    <label class="switch-field switch-field--stacked" for="encrypt-arbiter">
-                                        <span class="switch-label">Arbiter</span>
-                                        <span class="switch-control">
-                                            <input id="encrypt-arbiter" type="checkbox" />
-                                            <span class="switch-slider" aria-hidden="true"></span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="field-helper">Disk encryption is not wired in this pass.</div>
-                            </fieldset>
-
-                            <div class="form-section">
-                                <h3 class="section-title">Secret inputs</h3>
-                                <div class="form-field" id="pull-secret-value-field">
-                                    <label class="field-label" for="pull-secret-value">Pull secret <span class="required-marker">*</span></label>
-                                    <textarea id="pull-secret-value" class="text-input text-input--multiline" spellcheck="false"></textarea>
-                                    <div class="field-helper">Paste the full pull secret JSON here. If left empty, the optional file path below will be used.</div>
-                                </div>
-                                <div class="form-field" id="pull-secret-file-field">
-                                    <label class="field-label" for="pull-secret-file">Pull secret file</label>
-                                    <input id="pull-secret-file" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="ssh-public-key-value-field">
-                                    <label class="field-label" for="ssh-public-key-value">SSH public key <span class="required-marker">*</span></label>
-                                    <textarea id="ssh-public-key-value" class="text-input text-input--multiline text-input--compact" spellcheck="false"></textarea>
-                                    <div class="field-helper">Paste the SSH public key here. If left empty, the optional file path below will be used.</div>
-                                </div>
-                                <div class="form-field" id="ssh-public-key-file-field">
-                                    <label class="field-label" for="ssh-public-key-file">SSH public key file</label>
-                                    <input id="ssh-public-key-file" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section id="step-2" class="step-panel" hidden>
-                        <div class="info-stack">
-                            <div class="info-card">
-                                <h3 class="section-title">Operators</h3>
-                                <p class="body-copy">Additional operator selection and partner integrations are not wired yet.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="step-3" class="step-panel" hidden>
-                        <div class="info-stack">
-                            <div class="info-card">
-                                <h3 class="section-title">Host discovery</h3>
-                                <p class="body-copy">The backend generates its own agent ISO, renders its own install inputs, and lets the cluster discovery happen through the standard local agent installer flow.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="step-4" class="step-panel" hidden>
-                        <form class="cluster-form" novalidate>
-                            <div class="form-section">
-                                <h3 class="section-title">Compute</h3>
-                                <div class="form-field" id="node-vcpus-field">
-                                    <label class="field-label" for="node-vcpus">Control plane vCPU count <span class="required-marker">*</span></label>
-                                    <input id="node-vcpus" class="text-input" type="number" min="1" />
-                                </div>
-                                <div class="form-field" id="node-memory-mb-field">
-                                    <label class="field-label" for="node-memory-mb">Control plane memory (MiB) <span class="required-marker">*</span></label>
-                                    <input id="node-memory-mb" class="text-input" type="number" min="1024" />
-                                </div>
-                                <div class="form-field">
-                                    <label class="field-label" for="performance-domain">Performance domain</label>
-                                    <select id="performance-domain" class="select-input">
-                                        <option value="none" selected>None</option>
-                                        <option value="gold">Gold</option>
-                                        <option value="silver">Silver</option>
-                                        <option value="bronze">Bronze</option>
-                                    </select>
-                                    <div class="field-helper">Optional local weighting only.</div>
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <h3 class="section-title">Storage</h3>
-                                <div class="form-field" id="storage-pool-field">
-                                    <label class="field-label" for="storage-pool">Storage pool <span class="required-marker">*</span></label>
-                                    <select id="storage-pool" class="select-input"></select>
-                                </div>
-                                <div class="form-field" id="disk-size-gb-field">
-                                    <label class="field-label" for="disk-size-gb">Root disk size (GiB) <span class="required-marker">*</span></label>
-                                    <input id="disk-size-gb" class="text-input" type="number" min="20" />
-                                </div>
-                                <div class="form-field" id="bridge-name-field">
-                                    <label class="field-label" for="bridge-name">Bridge interface <span class="required-marker">*</span></label>
-                                    <select id="bridge-name" class="select-input"></select>
-                                </div>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section id="step-5" class="step-panel" hidden>
-                        <form class="cluster-form" novalidate>
-                            <div class="form-section">
-                                <h3 class="section-title">Machine network</h3>
-                                <div class="form-field" id="machine-cidr-field">
-                                    <label class="field-label" for="machine-cidr">Machine network CIDR <span class="required-marker">*</span></label>
-                                    <input id="machine-cidr" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="machine-gateway-field">
-                                    <label class="field-label" for="machine-gateway">Machine gateway <span class="required-marker">*</span></label>
-                                    <input id="machine-gateway" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="dns-servers-field">
-                                    <label class="field-label" for="dns-servers">DNS servers <span class="required-marker">*</span></label>
-                                    <input id="dns-servers" class="text-input" type="text" autocomplete="off" />
-                                    <div class="field-helper">Enter one or more IPv4 addresses separated by commas.</div>
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <h3 class="section-title">Control plane nodes</h3>
-                                <div class="form-field" id="control-plane-ip-1-field">
-                                    <label class="field-label" for="control-plane-ip-1">Control plane node 1 IP <span class="required-marker">*</span></label>
-                                    <input id="control-plane-ip-1" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="control-plane-ip-2-field">
-                                    <label class="field-label" for="control-plane-ip-2">Control plane node 2 IP <span class="required-marker">*</span></label>
-                                    <input id="control-plane-ip-2" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="control-plane-ip-3-field">
-                                    <label class="field-label" for="control-plane-ip-3">Control plane node 3 IP <span class="required-marker">*</span></label>
-                                    <input id="control-plane-ip-3" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                            </div>
-
-                            <div id="compact-vips-section" class="form-section">
-                                <h3 class="section-title">Cluster VIPs</h3>
-                                <div class="form-field" id="api-vip-field">
-                                    <label class="field-label" for="api-vip">API VIP <span class="required-marker">*</span></label>
-                                    <input id="api-vip" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                                <div class="form-field" id="ingress-vip-field">
-                                    <label class="field-label" for="ingress-vip">Ingress VIP <span class="required-marker">*</span></label>
-                                    <input id="ingress-vip" class="text-input" type="text" autocomplete="off" />
-                                </div>
-                            </div>
-
-                            <div id="sno-vips-note" class="info-card" hidden>
-                                <h3 class="section-title">SNO networking</h3>
-                                <p class="body-copy">For SNO, the backend renders <code>api</code>, <code>api-int</code>, and <code>*.apps</code> to the single control plane node IP.</p>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section id="step-6" class="step-panel" hidden>
-                        <div class="info-stack">
-                            <div class="info-card">
-                                <h3 class="section-title">Custom manifests</h3>
-                                <p class="body-copy">Custom manifest injection is not wired in this pass.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="step-7" class="step-panel" hidden>
-                        <div class="summary-grid">
-                            <div class="info-card">
-                                <h3 class="section-title">Review</h3>
-                                <dl id="review-list" class="review-list"></dl>
-                            </div>
-                            <div class="info-card">
-                                <h3 class="section-title">Execution status</h3>
-                                <div id="preflight-alert" class="validation-alert" hidden>
-                                    <div class="validation-alert__title">The deployment request is not ready</div>
-                                    <div id="preflight-alert-body" class="validation-alert__body"></div>
-                                </div>
-                                <div class="info-card__body">
-                                    <div id="job-status-summary" class="body-copy">No deployment has been started yet.</div>
-                                    <div id="job-current-task" class="field-helper"></div>
-                                </div>
-                                <div id="install-access-card" class="info-card__body" hidden>
-                                    <h4 class="section-title section-title--small">Access details</h4>
-                                    <dl id="install-access-list" class="review-list"></dl>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="log-panel">
-                            <div class="log-panel__header">
-                                <h3 class="section-title">Recent output</h3>
-                            </div>
-                            <pre id="job-log" class="log-output">No log output yet.</pre>
-                        </div>
-                    </section>
-
-                    <div id="validation-alert" class="validation-alert" role="alert" aria-live="polite">
-                        <div class="validation-alert__title">Provided cluster configuration is not valid</div>
-                        <div id="validation-alert-body" class="validation-alert__body"></div>
-                    </div>
-                    </section>
-
-                    <footer class="wizard-footer">
-                        <button id="back-button" class="action-button action-button--secondary" type="button">Back</button>
-                        <button id="next-button" class="action-button action-button--primary" type="button">Next</button>
-                        <button id="deploy-button" class="action-button action-button--primary" type="button" hidden>Deploy</button>
-                        <button id="redeploy-button" class="action-button action-button--secondary" type="button" hidden>Clean rebuild</button>
-                        <button id="stop-button" class="action-button action-button--secondary action-button--danger" type="button" hidden>Stop</button>
-                        <button id="cancel-button" class="action-button action-button--secondary" type="button">Cancel</button>
-                    </footer>
-                </main>
-            </div>
-
-            <div id="yaml-divider" class="yaml-divider" hidden aria-hidden="true"></div>
-
-            <aside id="yaml-pane" class="yaml-pane" hidden>
-                <div class="yaml-pane__header">
-                    <div>
-                        <h2 class="yaml-pane__title">YAML</h2>
-                        <p class="body-copy">Rendered install inputs and generated KVM guest plan. The pull secret is redacted in the preview.</p>
-                    </div>
-                    <div class="artifact-actions">
-                        <button id="artifact-copy-button" class="action-button action-button--secondary" type="button">Copy</button>
-                        <button id="artifact-download-button" class="action-button action-button--secondary" type="button">Download</button>
-                    </div>
-                </div>
-                <div id="artifact-tabs" class="artifact-tabs yaml-pane__tabs"></div>
-                <div id="artifact-empty" class="yaml-empty-state">Artifact preview will appear here.</div>
-                <div id="artifact-editor" class="yaml-editor" hidden>
-                    <div id="artifact-editor-scroll" class="yaml-editor__scroll">
-                        <div id="artifact-line-numbers" class="yaml-editor__gutter" aria-hidden="true"></div>
-                        <pre id="artifact-content" class="yaml-editor__code"></pre>
-                    </div>
-                </div>
-            </aside>
-        </div>
+        <div id="row-action-menu-root"></div>
     </div>
 
-    <script src="cockpit-openshift.js"></script>
+    <script src="cluster-list.js"></script>
 </body>
 </html>

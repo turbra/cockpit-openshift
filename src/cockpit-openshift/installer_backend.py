@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime as dt
+import getpass
 import hashlib
 import ipaddress
 import json
@@ -37,6 +38,7 @@ RUNTIME_CACHE_DIR = STATE_DIR / "cache"
 WORK_ROOT = STATE_DIR / "work"
 LIBVIRT_MEDIA_DIR = Path("/var/lib/libvirt/images")
 HELPER_PATH = Path("/usr/share/cockpit/cockpit-openshift/installer_backend.py")
+CLUSTER_METADATA_FILE = "cluster-metadata.json"
 STATE_SCHEMA = "standalone-v1"
 
 SUPPORTED_ARCH = "x86_64"
@@ -50,6 +52,7 @@ DEFAULT_SSH_PUBLIC_KEY_PATH = ""
 
 VERSION_PATTERN = re.compile(r"^OpenShift (?P<version>\d+\.\d+\.\d+)$")
 CLUSTER_NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+MAC_ADDRESS_PATTERN = re.compile(r"^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
 
 OPENSHIFT_MIRROR_BASE_URL = "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp"
 PERFORMANCE_DOMAINS = {
@@ -142,6 +145,43 @@ def parse_payload(payload_b64: str) -> dict:
 
 def current_timestamp() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def discover_owner() -> str:
+    for candidate in [os.environ.get("SUDO_USER"), os.environ.get("USER")]:
+        if candidate:
+            return candidate
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "local-admin"
+
+
+def channel_group(version: str) -> str:
+    parts = version.split(".")
+    if len(parts) >= 2:
+        return f"stable-{parts[0]}.{parts[1]}"
+    return "stable"
+
+
+def cluster_metadata_path(work_dir: Path) -> Path:
+    return work_dir / CLUSTER_METADATA_FILE
+
+
+def cluster_metadata_view(request: dict) -> dict:
+    return {
+        "createdAt": request.get("createdAt", current_timestamp()),
+        "owner": request.get("owner", discover_owner()),
+        "openshiftVersion": request.get("openshiftVersion", DEFAULT_VERSION),
+        "openshiftRelease": request.get("openshiftRelease", ""),
+        "provider": request.get("provider", "Local libvirt / KVM"),
+        "region": request.get("region", "Local KVM host"),
+        "channelGroup": request.get("channelGroup", channel_group(request.get("openshiftRelease", ""))),
+        "partnerIntegration": request.get("partnerIntegration", DEFAULT_PLATFORM_INTEGRATION),
+        "nodeVcpus": request.get("compute", {}).get("nodeVcpus", 0),
+        "memoryMb": request.get("compute", {}).get("nodeMemoryMb", 0),
+        "operators": request.get("operators", []),
+    }
 
 
 def runtime_env() -> dict:
@@ -264,6 +304,11 @@ def validate_ip(value: str, field_name: str, errors: list[str]) -> None:
         errors.append(field_name)
 
 
+def validate_mac(value: str, field_name: str, errors: list[str]) -> None:
+    if not MAC_ADDRESS_PATTERN.match(value):
+        errors.append(field_name)
+
+
 def query_storage_pools() -> list[dict]:
     proc = run("virsh", "pool-list", "--all", "--name", check=True)
     pools: list[dict] = []
@@ -364,15 +409,23 @@ def public_request_view(request: dict) -> dict:
     result = {
         "clusterName": request["clusterName"],
         "baseDomain": request["baseDomain"],
+        "createdAt": request.get("createdAt", ""),
+        "owner": request.get("owner", ""),
         "cpuArchitecture": request["cpuArchitecture"],
         "openshiftVersion": request["openshiftVersion"],
         "openshiftRelease": request["openshiftRelease"],
+        "channelGroup": request.get("channelGroup", channel_group(request["openshiftRelease"])),
         "topology": request["topology"],
         "platformType": request["platformType"],
+        "provider": request.get("provider", "Local libvirt / KVM"),
+        "region": request.get("region", "Local KVM host"),
+        "partnerIntegration": request.get("partnerIntegration", DEFAULT_PLATFORM_INTEGRATION),
+        "operators": request.get("operators", []),
         "hostsNetworkConfiguration": request["hostsNetworkConfiguration"],
         "network": request["network"],
         "compute": request["compute"],
         "storage": request["storage"],
+        "hosts": request.get("hosts", []),
         "secretInputs": request["secretInputs"],
     }
     if "secretFiles" in result["secretInputs"]:
@@ -433,8 +486,8 @@ def derive_request_paths(request: dict) -> dict:
     }
 
 
-def deterministic_mac(cluster_id: str, node_name: str) -> str:
-    digest = hashlib.sha256(f"{cluster_id}:{node_name}".encode("utf-8")).digest()
+def deterministic_mac(*parts: str) -> str:
+    digest = hashlib.sha256(":".join(parts).encode("utf-8")).digest()
     return "52:54:00:{:02x}:{:02x}:{:02x}".format(digest[0], digest[1], digest[2])
 
 
@@ -449,10 +502,10 @@ def build_nodes(request: dict, pool: dict) -> list[dict]:
     prefix_length = ipaddress.ip_network(request["network"]["machineCidr"], strict=False).prefixlen
     pool_type = pool["type"]
     disk_format = "raw" if pool_type == "logical" else "qcow2"
-    names = topology_node_names(request["topology"])
     nodes: list[dict] = []
 
-    for index, name in enumerate(names):
+    for index, host in enumerate(request["hosts"]):
+        name = host["name"]
         serial_seed = hashlib.sha256(f"{cluster_id}:{name}:disk".encode("utf-8")).hexdigest()[:12]
         disk_basename = f"{name}{'.qcow2' if disk_format == 'qcow2' else ''}"
         if pool_type == "logical":
@@ -460,12 +513,30 @@ def build_nodes(request: dict, pool: dict) -> list[dict]:
         else:
             disk_path = str(Path(pool["targetPath"]) / disk_basename)
 
+        interfaces = [
+            {
+                "name": request["network"]["primaryInterfaceName"],
+                "bridge": request["network"]["bridgeName"],
+                "macAddress": host.get("macAddress") or deterministic_mac(cluster_id, name, request["network"]["primaryInterfaceName"]),
+            }
+        ]
+        if request["network"].get("secondaryBridgeName"):
+            interfaces.append(
+                {
+                    "name": request["network"]["secondaryInterfaceName"],
+                    "bridge": request["network"]["secondaryBridgeName"],
+                    "macAddress": deterministic_mac(cluster_id, name, request["network"]["secondaryInterfaceName"]),
+                }
+            )
+
         nodes.append(
             {
                 "name": name,
-                "role": "control-plane",
-                "macAddress": deterministic_mac(cluster_id, name),
-                "ipAddress": request["network"]["nodeIps"][index],
+                "role": host.get("role", "control-plane"),
+                "macAddress": interfaces[0]["macAddress"],
+                "interfaces": interfaces,
+                "ipAddress": host["ipAddress"],
+                "networkYaml": host["networkYaml"].rstrip(),
                 "prefixLength": prefix_length,
                 "vcpus": request["compute"]["nodeVcpus"],
                 "memoryMb": request["compute"]["nodeMemoryMb"],
@@ -477,6 +548,10 @@ def build_nodes(request: dict, pool: dict) -> list[dict]:
         )
 
     return nodes
+
+
+def indent_block(content: str, prefix: str) -> list[str]:
+    return [prefix + line if line else prefix.rstrip() for line in content.splitlines()]
 
 
 def render_install_config(request: dict, nodes: list[dict]) -> str:
@@ -541,42 +616,23 @@ def render_agent_config(request: dict, nodes: list[dict]) -> str:
                 f"  - hostname: {node['name']}",
                 "    role: master",
                 "    interfaces:",
-                f"      - name: {GUEST_PRIMARY_INTERFACE}",
-                f"        macAddress: \"{node['macAddress']}\"",
+            ]
+        )
+        for interface in node["interfaces"]:
+            lines.extend(
+                [
+                    f"      - name: {interface['name']}",
+                    f"        macAddress: \"{interface['macAddress']}\"",
+                ]
+            )
+        lines.extend(
+            [
                 "    rootDeviceHints:",
                 f"      serialNumber: \"{node['diskSerial']}\"",
                 "    networkConfig:",
-                "      interfaces:",
-                f"        - name: {GUEST_PRIMARY_INTERFACE}",
-                "          identifier: mac-address",
-                "          type: ethernet",
-                "          state: up",
-                f"          mac-address: \"{node['macAddress']}\"",
-                "          ipv4:",
-                "            enabled: true",
-                "            dhcp: false",
-                "            address:",
-                f"              - ip: {node['ipAddress']}",
-                f"                prefix-length: {node['prefixLength']}",
-                "          ipv6:",
-                "            enabled: false",
-                "      dns-resolver:",
-                "        config:",
-                "          server:",
             ]
         )
-        for server in request["network"]["dnsServers"]:
-            lines.append(f"            - {server}")
-        lines.extend(
-            [
-                "      routes:",
-                "        config:",
-                "          - destination: 0.0.0.0/0",
-                f"            next-hop-address: {request['network']['machineGateway']}",
-                f"            next-hop-interface: {GUEST_PRIMARY_INTERFACE}",
-                "            table-id: 254",
-            ]
-        )
+        lines.extend(indent_block(node["networkYaml"], "      "))
 
     return "\n".join(lines) + "\n"
 
@@ -590,8 +646,9 @@ def render_guest_plan(request: dict, nodes: list[dict]) -> str:
         f"  baseDomain: {request['baseDomain']}",
         f"  topology: {request['topology']}",
         "host:",
-        f"  bridge: {request['network']['bridgeName']}",
         f"  storagePool: {request['storage']['storagePool']}",
+        f"  primaryBridge: {request['network']['bridgeName']}",
+        f"  secondaryBridge: {request['network'].get('secondaryBridgeName') or 'none'}",
         "controlPlane:",
         f"  vcpus: {request['compute']['nodeVcpus']}",
         f"  memoryMiB: {request['compute']['nodeMemoryMb']}",
@@ -605,13 +662,71 @@ def render_guest_plan(request: dict, nodes: list[dict]) -> str:
                 f"  - name: {node['name']}",
                 f"    role: {node['role']}",
                 f"    ipAddress: {node['ipAddress']}",
-                f"    macAddress: {node['macAddress']}",
+                f"    primaryMacAddress: {node['macAddress']}",
                 "    rootDisk:",
                 f"      path: {node['diskPath']}",
                 f"      format: {node['diskFormat']}",
                 f"      serial: {node['diskSerial']}",
+                "    interfaces:",
             ]
         )
+        for interface in node["interfaces"]:
+            lines.extend(
+                [
+                    f"      - name: {interface['name']}",
+                    f"        bridge: {interface['bridge']}",
+                    f"        macAddress: {interface['macAddress']}",
+                ]
+            )
+    return "\n".join(lines) + "\n"
+
+
+def render_static_network_configs(request: dict) -> str:
+    lines = [
+        "apiVersion: cockpit-openshift/v1alpha1",
+        "kind: StaticNetworkConfigs",
+        "hosts:",
+    ]
+    for host in request["hosts"]:
+        lines.extend(
+            [
+                f"  - hostname: {host['name']}",
+                f"    ipAddress: {host['ipAddress']}",
+                "    networkConfig: |-",
+            ]
+        )
+        lines.extend(indent_block(host["networkYaml"].rstrip(), "      "))
+    return "\n".join(lines) + "\n"
+
+
+def render_discovery_plan(request: dict, nodes: list[dict], paths: dict) -> str:
+    lines = [
+        "apiVersion: cockpit-openshift/v1alpha1",
+        "kind: DiscoveryPlan",
+        "cluster:",
+        f"  name: {request['clusterName']}",
+        f"  baseDomain: {request['baseDomain']}",
+        f"  discoveryIso: {paths['hypervisorIso']}",
+        f"  sshPublicKeySource: {request['secretInputs']['sshPublicKeySource']}",
+        "hosts:",
+    ]
+    for node in nodes:
+        lines.extend(
+            [
+                f"  - hostname: {node['name']}",
+                f"    domain: {node['name']}.{request['clusterName']}.{request['baseDomain']}",
+                f"    ipAddress: {node['ipAddress']}",
+                "    attachments:",
+            ]
+        )
+        for interface in node["interfaces"]:
+            lines.extend(
+                [
+                    f"      - name: {interface['name']}",
+                    f"        bridge: {interface['bridge']}",
+                    f"        macAddress: {interface['macAddress']}",
+                ]
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -634,7 +749,9 @@ def render_artifact_bundle(request: dict) -> dict:
         "artifacts": [
             {"name": "install-config.yaml", "content": install_config_redacted, "contentType": "text/yaml"},
             {"name": "agent-config.yaml", "content": render_agent_config(preview_request, nodes), "contentType": "text/yaml"},
+            {"name": "static-network-configs.yaml", "content": render_static_network_configs(preview_request), "contentType": "text/yaml"},
             {"name": "guest-plan.yaml", "content": render_guest_plan(preview_request, nodes), "contentType": "text/yaml"},
+            {"name": "discovery-plan.yaml", "content": render_discovery_plan(preview_request, nodes, paths), "contentType": "text/yaml"},
             {"name": "virt-install-plan.txt", "content": virt_install_plan + "\n", "contentType": "text/plain"},
         ],
     }
@@ -800,8 +917,6 @@ def build_virt_install_command(request: dict, node: dict, iso_path: Path) -> lis
         ),
         "--disk",
         f"path={iso_path},device=cdrom,bus=scsi",
-        "--network",
-        f"bridge={request['network']['bridgeName']},model=virtio,mac={node['macAddress']}",
         "--rng",
         "builtin",
         "--import",
@@ -814,6 +929,14 @@ def build_virt_install_command(request: dict, node: dict, iso_path: Path) -> lis
         "--tpm",
         "none",
     ]
+
+    for interface in node["interfaces"]:
+        cmd.extend(
+            [
+                "--network",
+                f"bridge={interface['bridge']},model=virtio,mac={interface['macAddress']}",
+            ]
+        )
 
     perf = request["compute"]["performanceDomain"]
     if perf in PERFORMANCE_DOMAINS and perf != "none":
@@ -951,6 +1074,22 @@ def collect_install_access(request: dict, paths: dict) -> dict:
     password_file = paths["installDir"] / "auth" / "kubeadmin-password"
     access = {
         "consoleUrl": console_url,
+        "kubeconfigPath": str(paths["kubeconfig"]),
+        "kubeadminUsername": "kubeadmin",
+        "kubeadminPassword": "",
+    }
+    if password_file.exists():
+        access["kubeadminPassword"] = password_file.read_text(encoding="utf-8").strip()
+    return access
+
+
+def cluster_install_access(cluster_name: str, base_domain: str, work_dir: Path) -> dict:
+    install_dir = work_dir / "generated" / "ocp"
+    password_file = install_dir / "auth" / "kubeadmin-password"
+    kubeconfig_path = install_dir / "auth" / "kubeconfig"
+    access = {
+        "consoleUrl": f"https://console-openshift-console.apps.{cluster_name}.{base_domain}",
+        "kubeconfigPath": str(kubeconfig_path),
         "kubeadminUsername": "kubeadmin",
         "kubeadminPassword": "",
     }
@@ -1040,6 +1179,25 @@ def discover_clusters() -> list[dict]:
         topology = "compact" if len(domains) == 3 else "sno" if len(domains) == 1 else "unknown"
         health = cluster_health(cluster_id, work_dir)
         console_url = f"https://console-openshift-console.apps.{cluster_name}.{base_domain}"
+        metadata_path = cluster_metadata_path(work_dir)
+        metadata = {
+            "createdAt": dt.datetime.fromtimestamp(work_dir.stat().st_mtime, tz=dt.timezone.utc).isoformat(),
+            "owner": "local-admin",
+            "openshiftVersion": DEFAULT_VERSION,
+            "openshiftRelease": DEFAULT_VERSION.split(" ", 1)[-1],
+            "provider": "Local libvirt / KVM",
+            "region": "Local KVM host",
+            "channelGroup": channel_group(DEFAULT_VERSION.split(" ", 1)[-1]),
+            "partnerIntegration": DEFAULT_PLATFORM_INTEGRATION,
+            "nodeVcpus": 0,
+            "memoryMb": 0,
+            "operators": [],
+        }
+        if metadata_path.exists():
+            try:
+                metadata.update(json.loads(metadata_path.read_text(encoding="utf-8")))
+            except Exception:
+                pass
         clusters.append(
             {
                 "clusterId": cluster_id,
@@ -1051,6 +1209,18 @@ def discover_clusters() -> list[dict]:
                 "consoleUrl": console_url,
                 "kubeconfigPath": str(work_dir / "generated" / "ocp" / "auth" / "kubeconfig"),
                 "health": health,
+                "createdAt": metadata["createdAt"],
+                "owner": metadata["owner"],
+                "openshiftVersion": metadata["openshiftVersion"],
+                "openshiftRelease": metadata["openshiftRelease"],
+                "provider": metadata["provider"],
+                "region": metadata["region"],
+                "channelGroup": metadata["channelGroup"],
+                "partnerIntegration": metadata["partnerIntegration"],
+                "nodeVcpus": metadata["nodeVcpus"],
+                "memoryMb": metadata["memoryMb"],
+                "operators": metadata["operators"],
+                "installAccess": cluster_install_access(cluster_name, base_domain, work_dir),
             }
         )
     return clusters
@@ -1089,13 +1259,14 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
     cpu_architecture = str(payload.get("cpuArchitecture", "")).strip()
     topology = normalize_topology(int(payload.get("controlPlaneCount", 0)))
     hosts_network = str(payload.get("hostsNetworkConfiguration", "")).strip()
-    platform_integration = DEFAULT_PLATFORM_INTEGRATION
+    platform_integration = str(payload.get("partnerIntegration", DEFAULT_PLATFORM_INTEGRATION)).strip() or DEFAULT_PLATFORM_INTEGRATION
     pull_secret_file = str(payload.get("pullSecretFile", "")).strip()
     ssh_public_key_file = str(payload.get("sshPublicKeyFile", "")).strip()
     pull_secret_value = str(payload.get("pullSecretValue", "")).strip()
     ssh_public_key_value = str(payload.get("sshPublicKeyValue", "")).strip()
     storage_pool_name = str((payload.get("storage", {}) or {}).get("storagePool", "")).strip()
     bridge_name = str(payload.get("bridgeName", "")).strip()
+    secondary_bridge_name = str(payload.get("secondaryBridgeName", "")).strip()
     performance_domain = str(payload.get("performanceDomain", DEFAULT_PERFORMANCE_DOMAIN)).strip() or DEFAULT_PERFORMANCE_DOMAIN
     match = VERSION_PATTERN.match(version_label)
 
@@ -1134,9 +1305,11 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
     machine_cidr = str(network.get("machineCidr", "")).strip()
     machine_gateway = str(network.get("machineGateway", "")).strip()
     dns_servers = [str(entry).strip() for entry in network.get("dnsServers", []) if str(entry).strip()]
-    node_ips = [str(entry).strip() for entry in network.get("nodeIps", []) if str(entry).strip()]
     api_vip = str(network.get("apiVip", "")).strip()
     ingress_vip = str(network.get("ingressVip", "")).strip()
+    primary_interface_name = str(network.get("primaryInterfaceName", GUEST_PRIMARY_INTERFACE)).strip() or GUEST_PRIMARY_INTERFACE
+    secondary_interface_name = str(network.get("secondaryInterfaceName", "eth1")).strip() or "eth1"
+    private_vlan_id = str(network.get("privateVlanId", "")).strip()
 
     if not machine_cidr:
         errors.append("Machine network CIDR")
@@ -1145,22 +1318,52 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
             ipaddress.ip_network(machine_cidr, strict=False)
         except ValueError:
             errors.append("Machine network CIDR")
-    if not machine_gateway:
-        errors.append("Machine gateway")
-    else:
+    if machine_gateway:
         validate_ip(machine_gateway, "Machine gateway", errors)
-    if not dns_servers:
-        errors.append("DNS servers")
-    else:
+    if dns_servers:
         for idx, server in enumerate(dns_servers, start=1):
             validate_ip(server, f"DNS server {idx}", errors)
 
+    raw_hosts = payload.get("hosts", []) or []
     expected_node_count = 1 if topology == "sno" else 3
-    if len(node_ips) != expected_node_count:
-        errors.append(f"Exactly {expected_node_count} control plane node IPs are required")
-    else:
-        for idx, node_ip in enumerate(node_ips, start=1):
-            validate_ip(node_ip, f"Control plane node {idx} IP", errors)
+    if len(raw_hosts) != expected_node_count:
+        errors.append(f"Exactly {expected_node_count} host definitions are required")
+
+    hosts: list[dict] = []
+    node_ips: list[str] = []
+    for idx in range(expected_node_count):
+        host_payload = raw_hosts[idx] if idx < len(raw_hosts) else {}
+        host_name = str(host_payload.get("name", "")).strip()
+        host_mac = str(host_payload.get("macAddress", "")).strip().lower()
+        host_ip = str(host_payload.get("ipAddress", "")).strip()
+        host_yaml = str(host_payload.get("networkYaml", "")).rstrip()
+
+        if not host_name:
+            errors.append(f"Host {idx + 1} name")
+        elif not CLUSTER_NAME_PATTERN.match(host_name):
+            errors.append(f"Host {idx + 1} name must contain only lowercase letters, numbers, and hyphens")
+        if not host_mac:
+            errors.append(f"Host {idx + 1} MAC address")
+        else:
+            validate_mac(host_mac, f"Host {idx + 1} MAC address", errors)
+        if not host_ip:
+            errors.append(f"Host {idx + 1} private IP")
+        else:
+            validate_ip(host_ip, f"Host {idx + 1} private IP", errors)
+        if not host_yaml:
+            errors.append(f"Host {idx + 1} network YAML")
+
+        hosts.append(
+            {
+                "name": host_name,
+                "role": str(host_payload.get("role", "control-plane")).strip() or "control-plane",
+                "macAddress": host_mac,
+                "ipAddress": host_ip,
+                "networkYaml": host_yaml,
+            }
+        )
+        if host_ip:
+            node_ips.append(host_ip)
 
     if topology == "compact":
         if not api_vip:
@@ -1187,6 +1390,10 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
         bridges = query_bridges()
         if bridge_name not in bridges:
             errors.append("Bridge interface")
+        if secondary_bridge_name and secondary_bridge_name not in bridges:
+            errors.append("Secondary bridge")
+        if secondary_bridge_name and secondary_bridge_name == bridge_name:
+            errors.append("Secondary bridge must differ from primary bridge")
 
     if not pull_secret_value:
         if not pull_secret_file or not Path(pull_secret_file).exists():
@@ -1237,15 +1444,21 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
         "openshiftRelease": match.group("version") if match else "",
         "topology": topology,
         "platformType": "none" if topology == "sno" else "baremetal",
+        "partnerIntegration": platform_integration,
+        "operators": [str(entry).strip() for entry in payload.get("operators", []) if str(entry).strip()],
         "hostsNetworkConfiguration": hosts_network,
         "network": {
             "bridgeName": bridge_name,
+            "secondaryBridgeName": secondary_bridge_name,
             "machineCidr": machine_cidr,
             "machineGateway": machine_gateway,
             "dnsServers": dns_servers,
             "nodeIps": node_ips,
             "apiVip": api_vip,
             "ingressVip": ingress_vip,
+            "primaryInterfaceName": primary_interface_name,
+            "secondaryInterfaceName": secondary_interface_name,
+            "privateVlanId": private_vlan_id,
         },
         "compute": {
             "nodeVcpus": node_vcpus,
@@ -1256,6 +1469,7 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
             "storagePool": storage_pool_name,
             "diskSizeGb": disk_size_gb,
         },
+        "hosts": hosts,
         "secretInputs": {
             "pullSecretSource": "inline" if pull_secret_value else "file",
             "pullSecretFile": pull_secret_file,
@@ -1340,9 +1554,16 @@ def handle_start(payload_b64: str, mode: str) -> int:
 
     clear_runtime_state()
     ensure_runtime_dirs()
+    request["createdAt"] = current_timestamp()
+    request["owner"] = discover_owner()
+    request["provider"] = "Local libvirt / KVM"
+    request["region"] = "Local KVM host"
+    request["channelGroup"] = channel_group(request["openshiftRelease"])
     request = materialize_secret_files(request)
+    paths = derive_request_paths(request)
     write_private_file(LOG_FILE, "")
     write_private_file(REQUEST_FILE, json.dumps(request, indent=2, sort_keys=True))
+    write_private_file(cluster_metadata_path(paths["workDir"]), json.dumps(cluster_metadata_view(request), indent=2, sort_keys=True))
 
     unit_name = f"cockpit-openshift-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = record_request_summary(request, mode, unit_name)

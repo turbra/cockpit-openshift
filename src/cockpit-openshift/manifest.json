@@ -5,7 +5,8 @@
     },
     "menu": {
         "index": {
-            "label": "OpenShift Install",
+            "label": "OpenShift",
+            "path": "index.html",
             "order": 16,
             "keywords": [
                 {

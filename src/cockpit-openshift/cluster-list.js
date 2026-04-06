@@ -2,7 +2,7 @@
 
 /* global cockpit */
 
-var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift-beta/installer_backend.py";
+var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
 var refs = {};
 var state = {
     items: [],
