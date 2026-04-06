@@ -424,6 +424,13 @@ function scheduleArtifactPreviewRefresh(force) {
     }, 250);
 }
 
+function artifactLoadMode() {
+    if (state.job && state.job.state && state.job.state.mode !== "destroy") {
+        return "current";
+    }
+    return "payload";
+}
+
 function applyRequestToState(request) {
     if (!request) {
         return;
@@ -1918,7 +1925,11 @@ function bindEvents() {
         state.yamlMode = event.target.checked;
         render();
         if (state.yamlMode) {
-            loadArtifacts("payload");
+            if (artifactLoadMode() === "current") {
+                loadArtifacts("current");
+            } else {
+                scheduleArtifactPreviewRefresh(true);
+            }
         }
     });
     refs.artifactCopyButton.addEventListener("click", copyCurrentArtifact);
