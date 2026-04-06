@@ -5,7 +5,7 @@
     },
     "menu": {
         "index": {
-            "label": "Clusters List (Beta)",
+            "label": "OpenShift",
             "path": "index.html",
             "order": 16,
             "keywords": [
