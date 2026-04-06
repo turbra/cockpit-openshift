@@ -451,6 +451,11 @@ pre {
     gap: 16px;
 }
 
+.card-stack {
+    display: grid;
+    gap: 16px;
+}
+
 .form-grid + .info-card,
 .form-grid + .section-header {
     margin-top: 16px;

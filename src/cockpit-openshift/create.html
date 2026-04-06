@@ -76,27 +76,50 @@
                                 </div>
 
                                 <div class="form-grid">
-                                    <div class="info-card">
-                                        <h4 class="section-title section-title--small">Cluster identity</h4>
-                                        <div class="form-field" id="cluster-name-field">
-                                            <label class="field-label" for="cluster-name">Cluster name <span class="required-marker">*</span></label>
-                                            <input id="cluster-name" class="text-input" type="text" autocomplete="off" aria-describedby="cluster-name-error" />
-                                            <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
-                                        </div>
-                                        <div class="form-field" id="base-domain-field">
-                                            <label class="field-label" for="base-domain">Base domain <span class="required-marker">*</span></label>
-                                            <input id="base-domain" class="text-input" type="text" autocomplete="off" />
-                                            <div class="field-helper">
-                                                The final cluster address becomes <code>&lt;cluster-name&gt;.&lt;base-domain&gt;</code>.
+                                    <div class="card-stack">
+                                        <div class="info-card">
+                                            <h4 class="section-title section-title--small">Cluster identity</h4>
+                                            <div class="form-field" id="cluster-name-field">
+                                                <label class="field-label" for="cluster-name">Cluster name <span class="required-marker">*</span></label>
+                                                <input id="cluster-name" class="text-input" type="text" autocomplete="off" aria-describedby="cluster-name-error" />
+                                                <div id="cluster-name-error" class="field-error" role="alert">Required field</div>
+                                            </div>
+                                            <div class="form-field" id="base-domain-field">
+                                                <label class="field-label" for="base-domain">Base domain <span class="required-marker">*</span></label>
+                                                <input id="base-domain" class="text-input" type="text" autocomplete="off" />
+                                                <div class="field-helper">
+                                                    The final cluster address becomes <code>&lt;cluster-name&gt;.&lt;base-domain&gt;</code>.
+                                                </div>
+                                            </div>
+                                            <div class="form-field">
+                                                <label class="field-label" for="openshift-version">OpenShift version</label>
+                                                <select id="openshift-version" class="select-input">
+                                                    <option selected>OpenShift 4.21.7</option>
+                                                    <option>OpenShift 4.21.6</option>
+                                                    <option>OpenShift 4.20.15</option>
+                                                </select>
                                             </div>
                                         </div>
-                                        <div class="form-field">
-                                            <label class="field-label" for="openshift-version">OpenShift version</label>
-                                            <select id="openshift-version" class="select-input">
-                                                <option selected>OpenShift 4.21.7</option>
-                                                <option>OpenShift 4.21.6</option>
-                                                <option>OpenShift 4.20.15</option>
-                                            </select>
+
+                                        <div class="info-card">
+                                            <h4 class="section-title">Host sizing</h4>
+                                            <div class="form-field" id="node-vcpus-field">
+                                                <label class="field-label" for="node-vcpus">Control plane vCPU count <span class="required-marker">*</span></label>
+                                                <input id="node-vcpus" class="text-input" type="number" min="1" />
+                                            </div>
+                                            <div class="form-field" id="node-memory-mb-field">
+                                                <label class="field-label" for="node-memory-mb">Control plane memory (MiB) <span class="required-marker">*</span></label>
+                                                <input id="node-memory-mb" class="text-input" type="number" min="1024" />
+                                            </div>
+                                            <div class="form-field">
+                                                <label class="field-label" for="performance-domain">Performance domain</label>
+                                                <select id="performance-domain" class="select-input">
+                                                    <option value="none" selected>None</option>
+                                                    <option value="gold">Gold</option>
+                                                    <option value="silver">Silver</option>
+                                                    <option value="bronze">Bronze</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -298,27 +321,6 @@
                                         <div class="form-field" id="disk-size-gb-field">
                                             <label class="field-label" for="disk-size-gb">Installation disk size (GiB) <span class="required-marker">*</span></label>
                                             <input id="disk-size-gb" class="text-input" type="number" min="20" />
-                                        </div>
-                                    </div>
-
-                                    <div class="info-card">
-                                        <h4 class="section-title">Host sizing</h4>
-                                        <div class="form-field" id="node-vcpus-field">
-                                            <label class="field-label" for="node-vcpus">Control plane vCPU count <span class="required-marker">*</span></label>
-                                            <input id="node-vcpus" class="text-input" type="number" min="1" />
-                                        </div>
-                                        <div class="form-field" id="node-memory-mb-field">
-                                            <label class="field-label" for="node-memory-mb">Control plane memory (MiB) <span class="required-marker">*</span></label>
-                                            <input id="node-memory-mb" class="text-input" type="number" min="1024" />
-                                        </div>
-                                        <div class="form-field">
-                                            <label class="field-label" for="performance-domain">Performance domain</label>
-                                            <select id="performance-domain" class="select-input">
-                                                <option value="none" selected>None</option>
-                                                <option value="gold">Gold</option>
-                                                <option value="silver">Silver</option>
-                                                <option value="bronze">Bronze</option>
-                                            </select>
                                         </div>
                                     </div>
                                 </div>

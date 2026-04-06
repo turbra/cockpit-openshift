@@ -5,11 +5,11 @@
 var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
 
 var steps = [
-    { id: 1, label: "Cluster details", description: "Define the cluster identity, installation baseline, and registry access required before host discovery." },
+    { id: 1, label: "Cluster details", description: "Define the cluster identity, installation baseline, host sizing, and registry access required before host discovery." },
     { id: 2, label: "Static network configurations", description: "Define the static network model with network-wide settings, host specific definitions, and YAML-assisted editing." },
     { id: 3, label: "Operators", description: "Displayed for Assisted Installer parity, but not supported by the current local backend." },
     { id: 4, label: "Host discovery", description: "Generate discovery media, attach it to planned hosts, and verify the discovered inventory." },
-    { id: 5, label: "Storage", description: "Choose the storage pool, host sizing, and installation disk layout for the local KVM-backed cluster." },
+    { id: 5, label: "Storage", description: "Choose the storage pool and installation disk layout for the local KVM-backed cluster." },
     { id: 6, label: "Networking", description: "Confirm machine networking, API and ingress VIPs, and the cluster-managed networking baseline." },
     { id: 7, label: "Review and create", description: "Validate the final configuration, inspect details if needed, and start the deployment." }
 ];
@@ -522,6 +522,8 @@ function stepErrorsFor(stepId) {
         if (!state.clusterName.trim()) errors.push("Cluster name");
         if (!state.baseDomain.trim()) errors.push("Base domain");
         if (state.cpuArchitecture !== "x86_64") errors.push("CPU architecture");
+        if (!(parseInt(state.nodeVcpus, 10) > 0)) errors.push("Control plane vCPU count");
+        if (!(parseInt(state.nodeMemoryMb, 10) > 0)) errors.push("Control plane memory");
         if (!state.pullSecretValue.trim() && !state.pullSecretFile.trim()) errors.push("Pull secret");
     }
 
@@ -544,8 +546,6 @@ function stepErrorsFor(stepId) {
 
     if (stepId === 5) {
         if (!state.storagePool) errors.push("Storage pool");
-        if (!(parseInt(state.nodeVcpus, 10) > 0)) errors.push("Control plane vCPU count");
-        if (!(parseInt(state.nodeMemoryMb, 10) > 0)) errors.push("Control plane memory");
         if (!(parseInt(state.diskSizeGb, 10) > 0)) errors.push("Installation disk size");
     }
 
