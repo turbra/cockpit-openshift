@@ -218,34 +218,6 @@ a:focus {
   margin-right: 0.35rem;
 }
 
-.cockpit-openshift-family-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-bottom: 1.35rem;
-}
-
-.cockpit-openshift-family-nav a {
-  padding: 0.5rem 0.8rem;
-  color: var(--cockpit-openshift-ink);
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--cockpit-openshift-border);
-  font-size: 0.94rem;
-  font-weight: 600;
-}
-
-.cockpit-openshift-family-nav a[aria-current="page"] {
-  color: #ffffff;
-  background: var(--cockpit-openshift-red);
-  border-color: var(--cockpit-openshift-red);
-}
-
-.cockpit-openshift-family-nav a:hover,
-.cockpit-openshift-family-nav a:focus {
-  border-color: var(--cockpit-openshift-red);
-}
-
 .markdown-body {
   max-width: 100%;
   margin: 0;

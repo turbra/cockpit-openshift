@@ -58,24 +58,6 @@
             <span aria-current="page">{{ page.title }}</span>
           </nav>
           {% endunless %}
-          <nav class="cockpit-openshift-family-nav" aria-label="Documentation families">
-            <a
-              href="{{ '/documentation-map.html' | relative_url }}"
-              {% if page.url == '/documentation-map.html' %}aria-current="page"{% endif %}
-            >Docs Map</a>
-            <a
-              href="{{ '/capabilities.html' | relative_url }}"
-              {% if page.url == '/capabilities.html' %}aria-current="page"{% endif %}
-            >Capabilities</a>
-            <a
-              href="{{ '/practical-use-cases.html' | relative_url }}"
-              {% if page.url == '/practical-use-cases.html' %}aria-current="page"{% endif %}
-            >Use Cases</a>
-            <a
-              href="{{ '/reference.html' | relative_url }}"
-              {% if page.url == '/reference.html' %}aria-current="page"{% endif %}
-            >Reference</a>
-          </nav>
           <article class="markdown-body">
             {{ content }}
           </article>
@@ -110,15 +92,6 @@
           </section>
           {% endif %}
 
-          <section class="cockpit-openshift-side-block">
-            <h2>Page Family</h2>
-            <ul class="cockpit-openshift-side-list">
-              <li><a href="{{ '/capabilities.html' | relative_url }}">Capabilities</a></li>
-              <li><a href="{{ '/practical-use-cases.html' | relative_url }}">Practical Use Cases</a></li>
-              <li><a href="{{ '/reference.html' | relative_url }}">Reference</a></li>
-            </ul>
-          </section>
-
           {% if page.start_here %}
           <section class="cockpit-openshift-side-block">
             <h2>Start Here</h2>
@@ -148,15 +121,6 @@
               id="cockpit-openshift-toc-list"
               aria-labelledby="cockpit-openshift-on-this-page-title"
             ></ol>
-          </section>
-
-          <section class="cockpit-openshift-side-block">
-            <h2>Project Links</h2>
-            <ul class="cockpit-openshift-side-list">
-              <li><a href="https://github.com/turbra/cockpit-openshift">Repository</a></li>
-              <li><a href="https://github.com/turbra/cockpit-openshift/blob/main/README.md">Top README</a></li>
-              <li><a href="https://github.com/turbra/cockpit-openshift/tree/main/docs">Docs Source</a></li>
-            </ul>
           </section>
 
           {% if page.source_links %}
