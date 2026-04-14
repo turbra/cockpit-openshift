@@ -125,10 +125,8 @@ UI than a loose shell script stack.
 
 ## Repository
 
-<div class="cockpit-openshift-cta-row">
-  <a href="{{ '/documentation-map.html' | relative_url }}"><kbd>DOCUMENTATION MAP</kbd></a>
-  <a href="{{ '/capabilities.html' | relative_url }}"><kbd>CAPABILITIES</kbd></a>
-  <a href="{{ '/practical-use-cases.html' | relative_url }}"><kbd>USE CASES</kbd></a>
-  <a href="{{ '/reference.html' | relative_url }}"><kbd>REFERENCE</kbd></a>
-  <a href="https://github.com/turbra/cockpit-openshift"><kbd>REPOSITORY</kbd></a>
-</div>
+The repository remains the source of truth for code, packaging, and this docs
+site:
+
+- [Repository](https://github.com/turbra/cockpit-openshift)
+- [README](https://github.com/turbra/cockpit-openshift/blob/main/README.md)

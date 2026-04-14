@@ -84,8 +84,3 @@ That keeps the site from collapsing into one long README clone.
   and destroy
 - [Reference]({{ '/reference.html' | relative_url }})
   for packaging, runtime files, commands, artifact names, and source layout
-
-## Repository Path
-
-- [Repository](https://github.com/turbra/cockpit-openshift)
-- [Top README](https://github.com/turbra/cockpit-openshift/blob/main/README.md)
