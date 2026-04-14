@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Cockpit OpenShift local install workflow</title>
+  <desc id="desc">A four-stage workflow showing host preparation, guided create flow, artifact review, and deploy plus inventory outcomes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fff7f7"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#6a6e73"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="520" fill="url(#bg)"/>
+  <text x="70" y="78" fill="#151515" font-family="Red Hat Display, Red Hat Text, Arial, sans-serif" font-size="34" font-weight="600">Cluster-first local OpenShift workflow</text>
+  <text x="70" y="112" fill="#4d4d4d" font-family="Red Hat Text, Arial, sans-serif" font-size="20">The host stays in control from prerequisites to deployment and post-install inventory.</text>
+
+  <g transform="translate(70 170)">
+    <rect width="230" height="220" fill="#ffffff" stroke="#c7c7c7" stroke-width="2"/>
+    <rect width="230" height="12" fill="#ee0000"/>
+    <text x="20" y="46" fill="#151515" font-family="Red Hat Display, Red Hat Text, Arial, sans-serif" font-size="24" font-weight="600">1. Prepare host</text>
+    <text x="20" y="84" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Cockpit</text>
+    <text x="20" y="114" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">libvirt</text>
+    <text x="20" y="144" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">storage pool</text>
+    <text x="20" y="174" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">pull secret + SSH key</text>
+  </g>
+
+  <g transform="translate(350 170)">
+    <rect width="230" height="220" fill="#ffffff" stroke="#c7c7c7" stroke-width="2"/>
+    <rect width="230" height="12" fill="#ee0000"/>
+    <text x="20" y="46" fill="#151515" font-family="Red Hat Display, Red Hat Text, Arial, sans-serif" font-size="24" font-weight="600">2. Guided create</text>
+    <text x="20" y="84" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Choose SNO or compact</text>
+    <text x="20" y="114" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Define static networking</text>
+    <text x="20" y="144" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Set VIPs and node plan</text>
+    <text x="20" y="174" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Keep execution on-host</text>
+  </g>
+
+  <g transform="translate(630 170)">
+    <rect width="230" height="220" fill="#ffffff" stroke="#c7c7c7" stroke-width="2"/>
+    <rect width="230" height="12" fill="#ee0000"/>
+    <text x="20" y="46" fill="#151515" font-family="Red Hat Display, Red Hat Text, Arial, sans-serif" font-size="24" font-weight="600">3. Review artifacts</text>
+    <text x="20" y="84" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">install-config.yaml</text>
+    <text x="20" y="114" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">agent-config.yaml</text>
+    <text x="20" y="144" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">static-network-configs.yaml</text>
+    <text x="20" y="174" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">virt-install plan</text>
+  </g>
+
+  <g transform="translate(910 170)">
+    <rect width="220" height="220" fill="#ffffff" stroke="#c7c7c7" stroke-width="2"/>
+    <rect width="220" height="12" fill="#ee0000"/>
+    <text x="20" y="46" fill="#151515" font-family="Red Hat Display, Red Hat Text, Arial, sans-serif" font-size="24" font-weight="600">4. Deploy + return</text>
+    <text x="20" y="84" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Launch from Cockpit</text>
+    <text x="20" y="114" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Track status + recent logs</text>
+    <text x="20" y="144" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">View cluster inventory</text>
+    <text x="20" y="174" fill="#151515" font-family="Red Hat Text, Arial, sans-serif" font-size="18">Rebuild or destroy</text>
+  </g>
+
+  <path d="M302 280H338" fill="none" stroke="#6a6e73" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M582 280H618" fill="none" stroke="#6a6e73" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M862 280H898" fill="none" stroke="#6a6e73" stroke-width="4" marker-end="url(#arrow)"/>
+</svg>

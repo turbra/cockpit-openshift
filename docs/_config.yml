@@ -1,0 +1,19 @@
+title: "Cockpit OpenShift"
+description: >-
+  Cockpit-hosted local OpenShift installer for one KVM/libvirt host, with
+  guided create flow, generated artifact review, and cluster inventory actions.
+url: "https://turbra.github.io"
+baseurl: "/cockpit-openshift"
+theme: jekyll-theme-primer
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+markdown: kramdown
+kramdown:
+  input: GFM
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default
