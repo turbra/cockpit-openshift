@@ -71,6 +71,8 @@ The supported path today is intentionally narrow:
 | --- | --- |
 | Host | one KVM/libvirt host |
 | Topologies | SNO and compact |
+| Validated releases | 4.20 and 4.21 |
+| Experimental releases | 4.19.12 and 4.18.24 |
 | Node networking | static |
 | Storage pools | directory-backed and logical pools |
 | User-provided inputs | pull secret, SSH public key, DNS, VIPs, node IPs |
@@ -78,6 +80,11 @@ The supported path today is intentionally narrow:
 > [!IMPORTANT]
 > Treat static networking as the supported path. DHCP appears in the UI for
 > parity, not because it is already validated end to end.
+
+> [!NOTE]
+> `OpenShift 4.19.12` and `OpenShift 4.18.24` are exposed in the selector for
+> experimental local testing. They are not part of the validated support path
+> yet.
 
 ## Where The Boundary Stops
 
