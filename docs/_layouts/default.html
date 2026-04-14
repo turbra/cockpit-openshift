@@ -45,19 +45,22 @@
         </div>
       </header>
 
+      <nav class="cockpit-openshift-breadcrumbs" aria-label="Breadcrumb">
+        <div class="cockpit-openshift-breadcrumbs-inner">
+          <a href="{{ '/' | relative_url }}">Home</a>
+          {% if page.topic_family %}
+          <span aria-hidden="true">/</span>
+          <span>{{ page.topic_family }}</span>
+          {% endif %}
+          {% if page.url != '/' and page.url != '/index.html' %}
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{{ page.title }}</span>
+          {% endif %}
+        </div>
+      </nav>
+
       <main id="main-content" class="cockpit-openshift-page-shell">
         <div class="cockpit-openshift-content-column">
-          {% unless page.url == '/' or page.url == '/index.html' %}
-          <nav class="cockpit-openshift-breadcrumbs" aria-label="Breadcrumb">
-            <a href="{{ '/' | relative_url }}">Docs Home</a>
-            <span>/</span>
-            {% if page.parent_url and page.parent_label %}
-            <a href="{{ page.parent_url | relative_url }}">{{ page.parent_label }}</a>
-            <span>/</span>
-            {% endif %}
-            <span aria-current="page">{{ page.title }}</span>
-          </nav>
-          {% endunless %}
           <article class="markdown-body">
             {{ content }}
           </article>

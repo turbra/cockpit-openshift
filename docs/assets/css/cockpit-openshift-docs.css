@@ -81,6 +81,7 @@ a:focus {
 }
 
 .cockpit-openshift-site-header-inner,
+.cockpit-openshift-breadcrumbs-inner,
 .cockpit-openshift-page-shell,
 .cockpit-openshift-site-footer {
   max-width: var(--cockpit-openshift-max-width);
@@ -209,23 +210,35 @@ a:focus {
 }
 
 .cockpit-openshift-breadcrumbs {
-  margin-bottom: 1.25rem;
-  color: var(--cockpit-openshift-ink-soft);
-  font-size: 0.95rem;
+  border-bottom: 1px solid var(--cockpit-openshift-border);
+  background: var(--cockpit-openshift-surface-alt);
+  font-size: 0.88rem;
 }
 
-.cockpit-openshift-breadcrumbs a {
-  color: var(--cockpit-openshift-ink-soft);
+.cockpit-openshift-breadcrumbs-inner {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  color: var(--cockpit-openshift-ink-muted);
+}
+
+.cockpit-openshift-breadcrumbs-inner a {
+  color: var(--cockpit-openshift-ink-muted);
   text-decoration: none;
 }
 
-.cockpit-openshift-breadcrumbs a:hover,
-.cockpit-openshift-breadcrumbs a:focus {
+.cockpit-openshift-breadcrumbs-inner a:hover,
+.cockpit-openshift-breadcrumbs-inner a:focus {
   color: var(--cockpit-openshift-red-dark);
 }
 
-.cockpit-openshift-breadcrumbs span {
-  margin-right: 0.35rem;
+.cockpit-openshift-breadcrumbs-inner span[aria-hidden="true"] {
+  margin: 0 0.4rem;
+  color: var(--cockpit-openshift-border-strong);
+}
+
+.cockpit-openshift-breadcrumbs-inner span[aria-current="page"] {
+  color: var(--cockpit-openshift-ink);
+  font-weight: 600;
 }
 
 .markdown-body {
