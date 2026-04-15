@@ -45,11 +45,6 @@ KVM/libvirt host.
 > networking as the supported path until DHCP is proven end to end.
 
 > [!NOTE]
-> The UI also exposes `OpenShift 4.19.12` and `OpenShift 4.18.24` as
-> experimental local test options. The validated path remains `4.20` and
-> `4.21`.
-
-> [!NOTE]
 > The user must provide a valid pull secret and SSH public key in the UI,
 > either by pasting them directly or by pointing at local files on the host.
 

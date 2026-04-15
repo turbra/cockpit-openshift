@@ -17,7 +17,7 @@ WORK="$(mktemp -d)"
 mkdir -p "${WORK}/${TARBALL_DIR}"
 mkdir -p "${WORK}/${TARBALL_DIR}/src/cockpit-openshift"
 cp "${SCRIPT_DIR}"/{README.md,LICENSE} "${WORK}/${TARBALL_DIR}/"
-cp "${PLUGIN_SRC_DIR}"/{manifest.json,index.html,cockpit-openshift.js,cockpit-openshift.css,installer_backend.py} \
+cp "${PLUGIN_SRC_DIR}"/{manifest.json,index.html,create.html,overview.html,cockpit-openshift.js,cluster-list.js,cluster-overview.js,cockpit-openshift.css,installer_backend.py} \
    "${WORK}/${TARBALL_DIR}/src/cockpit-openshift/"
 tar czf "${BUILD_ROOT}/SOURCES/${SPEC_NAME}-${VERSION}.tar.gz" -C "${WORK}" "${TARBALL_DIR}"
 rm -rf "${WORK}"
