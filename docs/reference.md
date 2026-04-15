@@ -125,21 +125,6 @@ The backend preview bundle currently exposes these operator-review artifacts:
 - `discovery-plan.yaml`
 - `virt-install-plan.txt`
 
-## Version Selector
-
-The create workflow currently exposes:
-
-- validated selections:
-  - `OpenShift 4.21.7`
-  - `OpenShift 4.21.6`
-  - `OpenShift 4.20.15`
-- experimental selections:
-  - `OpenShift 4.19.12`
-  - `OpenShift 4.18.24`
-
-The older two are present for local test coverage, not as fully validated
-defaults.
-
 ## Cockpit Entry Point
 
 The Cockpit menu registration lives in:
