@@ -1015,7 +1015,7 @@ function renderOptions() {
 }
 
 function renderArtifacts() {
-    refs.artifactTabs.innerHTML = "";
+    refs.artifactSelect.innerHTML = "";
     if (!state.artifacts.length) {
         refs.artifactEmpty.hidden = false;
         refs.artifactEditor.hidden = true;
@@ -1025,22 +1025,20 @@ function renderArtifacts() {
         refs.artifactCopyButton.disabled = true;
         refs.artifactDownloadButton.disabled = true;
         refs.artifactCopyButton.textContent = "Copy";
+        refs.artifactSelect.disabled = true;
         return;
     }
 
     refs.artifactEmpty.hidden = true;
     refs.artifactEditor.hidden = false;
     state.artifacts.forEach(function (artifact) {
-        var button = document.createElement("button");
-        button.type = "button";
-        button.className = "artifact-tab" + (artifact.name === currentArtifact().name ? " artifact-tab--active" : "");
-        button.textContent = artifact.name;
-        button.addEventListener("click", function () {
-            state.currentArtifactName = artifact.name;
-            renderArtifacts();
-        });
-        refs.artifactTabs.appendChild(button);
+        var option = document.createElement("option");
+        option.value = artifact.name;
+        option.textContent = artifact.name;
+        refs.artifactSelect.appendChild(option);
     });
+    refs.artifactSelect.value = currentArtifact().name;
+    refs.artifactSelect.disabled = state.artifacts.length < 2;
 
     renderArtifactCode(currentArtifact().content, currentArtifact().name);
     refs.artifactCopyButton.disabled = false;
@@ -2445,6 +2443,10 @@ function bindEvents() {
     });
     refs.artifactCopyButton.addEventListener("click", copyCurrentArtifact);
     refs.artifactDownloadButton.addEventListener("click", downloadCurrentArtifact);
+    refs.artifactSelect.addEventListener("change", function (event) {
+        state.currentArtifactName = event.target.value;
+        renderArtifacts();
+    });
     refs.jobLogDownloadButton.addEventListener("click", downloadInstallLog);
     if (refs.clustersRefreshButton) {
         refs.clustersRefreshButton.addEventListener("click", function () {
@@ -2542,7 +2544,7 @@ function cacheRefs() {
     refs.ingressVip = document.getElementById("ingress-vip");
     refs.snoVipsNote = document.getElementById("sno-vips-note");
     refs.reviewSections = document.getElementById("review-sections");
-    refs.artifactTabs = document.getElementById("artifact-tabs");
+    refs.artifactSelect = document.getElementById("artifact-select");
     refs.artifactEmpty = document.getElementById("artifact-empty");
     refs.artifactEditor = document.getElementById("artifact-editor");
     refs.artifactLineNumbers = document.getElementById("artifact-line-numbers");
