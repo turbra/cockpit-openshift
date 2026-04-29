@@ -43,11 +43,6 @@
 
         <nav class="overview-tabs" aria-label="Cluster detail tabs">
             <button class="overview-tabs__tab overview-tabs__tab--active" type="button" data-tab="overview" aria-current="page">Overview</button>
-            <button class="overview-tabs__tab" type="button" data-tab="monitoring">Monitoring</button>
-            <button class="overview-tabs__tab" type="button" data-tab="access-control">Access control</button>
-            <button class="overview-tabs__tab" type="button" data-tab="cluster-history">Cluster history</button>
-            <button class="overview-tabs__tab" type="button" data-tab="support">Support</button>
-            <button class="overview-tabs__tab" type="button" data-tab="add-hosts">Add Hosts</button>
         </nav>
 
         <section id="cluster-missing" class="empty-state" hidden>
@@ -98,50 +93,6 @@
             </div>
         </section>
 
-        <section id="monitoring-tab-panel" class="tab-panel" hidden>
-            <article class="page-card">
-                <div class="page-card__header">
-                    <h2 class="section-title">Monitoring</h2>
-                </div>
-                <p class="body-copy">Monitoring integration is not wired yet for this local KVM flow. Use the OpenShift console and cluster operators for live metrics.</p>
-            </article>
-        </section>
-
-        <section id="access-control-tab-panel" class="tab-panel" hidden>
-            <article class="page-card">
-                <div class="page-card__header">
-                    <h2 class="section-title">Access control</h2>
-                </div>
-                <p class="body-copy">Cluster access remains governed by kubeconfig and cluster RBAC. Use the kubeconfig path in the overview details to continue with administrative setup.</p>
-            </article>
-        </section>
-
-        <section id="cluster-history-tab-panel" class="tab-panel" hidden>
-            <article class="page-card">
-                <div class="page-card__header">
-                    <h2 class="section-title">Cluster history</h2>
-                </div>
-                <ul id="history-list" class="content-list"></ul>
-            </article>
-        </section>
-
-        <section id="support-tab-panel" class="tab-panel" hidden>
-            <article class="page-card">
-                <div class="page-card__header">
-                    <h2 class="section-title">Support</h2>
-                </div>
-                <p class="body-copy">For assisted-install guidance, review the generated artifacts and recent installer output from the Create Cluster workflow.</p>
-            </article>
-        </section>
-
-        <section id="add-hosts-tab-panel" class="tab-panel" hidden>
-            <article class="page-card">
-                <div class="page-card__header">
-                    <h2 class="section-title">Add Hosts</h2>
-                </div>
-                <p class="body-copy">Host expansion is not automated yet. Reuse discovery-media generation and host-network YAML patterns from the Create Cluster flow when scaling out locally.</p>
-            </article>
-        </section>
     </div>
 
     <script src="cluster-overview.js"></script>
