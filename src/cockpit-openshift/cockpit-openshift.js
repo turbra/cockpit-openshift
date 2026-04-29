@@ -39,6 +39,7 @@ var operatorCatalog = [
 var refs = {};
 var state = createInitialState();
 var pollTimer = null;
+var pollStartedAt = 0;
 var artifactPreviewTimer = null;
 var lastArtifactPreviewKey = "";
 var pageContext = "";
@@ -178,7 +179,7 @@ function encodePayload(payload) {
 }
 
 function backendCommandTimeout(command) {
-    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy"
+    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy" || command === "log"
         ? HEAVY_COMMAND_TIMEOUT_MS
         : QUICK_COMMAND_TIMEOUT_MS;
 }
@@ -204,6 +205,9 @@ function loadingMessageFor(command) {
     }
     if (command === "clusters") {
         return "Loading cluster inventory...";
+    }
+    if (command === "log") {
+        return "Preparing install log...";
     }
     return "Contacting backend...";
 }
@@ -1902,10 +1906,27 @@ function stopPolling() {
     }
 }
 
+function currentPollInterval() {
+    var elapsed;
+    if (!pollStartedAt) {
+        pollStartedAt = Date.now();
+    }
+    elapsed = Date.now() - pollStartedAt;
+    if (elapsed >= 10 * 60 * 1000) {
+        return 30000;
+    }
+    if (elapsed >= 2 * 60 * 1000) {
+        return 10000;
+    }
+    return 5000;
+}
+
 function schedulePoll() {
     stopPolling();
     if (state.job && state.job.running) {
-        pollTimer = window.setTimeout(refreshStatus, 5000);
+        pollTimer = window.setTimeout(refreshStatus, currentPollInterval());
+    } else {
+        pollStartedAt = 0;
     }
 }
 
@@ -2236,6 +2257,29 @@ function downloadCurrentArtifact() {
     window.URL.revokeObjectURL(href);
 }
 
+function downloadInstallLog() {
+    var blob;
+    var href;
+    var link;
+    backendCommand("log").then(function (result) {
+        if (!result.ok) {
+            showPageAlert((result.errors || ["Install log is not available."]).join(" "), "danger", "Log download failed");
+            return;
+        }
+        blob = new Blob([result.content || ""], { type: result.contentType || "text/plain" });
+        href = window.URL.createObjectURL(blob);
+        link = document.createElement("a");
+        link.href = href;
+        link.download = result.name || "install.log";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(href);
+    }).catch(function (error) {
+        showPageAlert(String(error), "danger", "Log download failed");
+    });
+}
+
 function warnBeforeUnload(event) {
     if (!state.formDirty || (state.job && state.job.running)) {
         return;
@@ -2383,6 +2427,7 @@ function bindEvents() {
     });
     refs.artifactCopyButton.addEventListener("click", copyCurrentArtifact);
     refs.artifactDownloadButton.addEventListener("click", downloadCurrentArtifact);
+    refs.jobLogDownloadButton.addEventListener("click", downloadInstallLog);
     if (refs.clustersRefreshButton) {
         refs.clustersRefreshButton.addEventListener("click", function () {
             loadClusters();
@@ -2493,6 +2538,7 @@ function cacheRefs() {
     refs.installAccessCard = document.getElementById("install-access-card");
     refs.installAccessList = document.getElementById("install-access-list");
     refs.jobLogPanel = document.getElementById("job-log-panel");
+    refs.jobLogDownloadButton = document.getElementById("job-log-download-button");
     refs.jobLog = document.getElementById("job-log");
     refs.validationAlert = document.getElementById("validation-alert");
     refs.validationAlertBody = document.getElementById("validation-alert-body");
