@@ -214,10 +214,20 @@ pre {
 .status-chip {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     padding: 4px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 700;
+    line-height: 1;
+}
+
+.status-chip::before {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 12px;
+    font-size: 11px;
     line-height: 1;
 }
 
@@ -227,9 +237,19 @@ pre {
     color: #4f5255;
 }
 
+.status-chip--muted::before {
+    content: "-";
+}
+
 .status-chip--success {
     background: #e7f6ec;
     color: #1e4f28;
+}
+
+.status-chip--success::before {
+    content: "OK";
+    min-width: 18px;
+    font-size: 10px;
 }
 
 .status-chip--progress {
@@ -237,14 +257,26 @@ pre {
     color: #004b95;
 }
 
+.status-chip--progress::before {
+    content: "...";
+}
+
 .status-chip--danger {
     background: #fff6f6;
     color: #c9190b;
 }
 
+.status-chip--danger::before {
+    content: "!";
+}
+
 .status-chip--warning {
     background: #fdf6e7;
     color: #795600;
+}
+
+.status-chip--warning::before {
+    content: "!";
 }
 
 .wizard-shell__header {
@@ -465,6 +497,7 @@ pre {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    max-width: 640px;
 }
 
 .form-field + .form-field {
@@ -504,7 +537,7 @@ pre {
     display: block;
     margin-top: 2px;
     color: #6a6e73;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .choice-option--disabled {
@@ -522,7 +555,7 @@ pre {
 
 .field-helper {
     color: #6a6e73;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .field-error {
