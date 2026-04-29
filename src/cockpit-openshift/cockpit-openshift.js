@@ -354,6 +354,13 @@ function activeJobClusterId() {
     return state.job.state.clusterName + "." + state.job.state.baseDomain;
 }
 
+function clusterIdFromRequest(request) {
+    if (!request || !request.clusterName || !request.baseDomain) {
+        return "";
+    }
+    return request.clusterName + "." + request.baseDomain;
+}
+
 function draftClusterId() {
     if (!state.clusterName.trim() || !state.baseDomain.trim()) {
         return "";
@@ -586,10 +593,23 @@ function scheduleArtifactPreviewRefresh(force) {
 }
 
 function artifactLoadMode() {
-    if (state.job && state.job.state && state.job.state.mode !== "destroy") {
+    if (canUseCurrentArtifacts()) {
         return "current";
     }
     return "payload";
+}
+
+function canUseCurrentArtifacts() {
+    var activeId = activeJobClusterId();
+    var draftId = draftClusterId();
+
+    if (!state.job || !state.job.state || state.job.state.mode === "destroy" || !activeId) {
+        return false;
+    }
+    if (clusterIdFromUrl) {
+        return activeId === clusterIdFromUrl;
+    }
+    return state.job.running && !!draftId && activeId === draftId;
 }
 
 function applyRequestToState(request) {
@@ -1944,9 +1964,7 @@ function refreshStatus() {
         if (state.wizardOpen &&
             state.currentStep >= 7 &&
             !state.artifacts.length &&
-            status.state &&
-            status.state.clusterName &&
-            status.state.mode !== "destroy") {
+            canUseCurrentArtifacts()) {
             loadArtifacts("current");
         }
 
