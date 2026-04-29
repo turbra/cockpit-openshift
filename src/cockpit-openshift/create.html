@@ -465,7 +465,10 @@
                             <button id="artifact-download-button" class="action-button action-button--secondary" type="button">Download</button>
                         </div>
                     </div>
-                    <div id="artifact-tabs" class="artifact-tabs yaml-pane__tabs"></div>
+                    <div class="artifact-selector yaml-pane__selector">
+                        <label class="artifact-selector__label" for="artifact-select">Artifact</label>
+                        <select id="artifact-select" class="artifact-selector__select" disabled></select>
+                    </div>
                     <div id="artifact-empty" class="yaml-empty-state">Artifact preview will appear here.</div>
                     <div id="artifact-editor" class="yaml-editor" hidden>
                         <div id="artifact-editor-scroll" class="yaml-editor__scroll">

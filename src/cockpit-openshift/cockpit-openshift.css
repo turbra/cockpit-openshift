@@ -896,8 +896,7 @@ body.is-resizing-yaml * {
     font-weight: 600;
 }
 
-.yaml-pane__tabs {
-    padding-top: 12px;
+.yaml-pane__selector {
     border-bottom: 1px solid #d2d2d2;
 }
 
@@ -906,29 +905,26 @@ body.is-resizing-yaml * {
     color: #6a6e73;
 }
 
-.artifact-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 16px 16px 0 16px;
+.artifact-selector {
+    display: grid;
+    gap: 6px;
+    padding: 12px 16px;
 }
 
-.artifact-tab {
-    min-height: 32px;
-    padding: 0 12px;
-    border: 1px solid #8a8d90;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #151515;
-    cursor: pointer;
+.artifact-selector__label {
+    color: #3c3f42;
     font-size: 13px;
     font-weight: 700;
 }
 
-.artifact-tab--active {
-    background: #06c;
-    border-color: #06c;
-    color: #ffffff;
+.artifact-selector__select {
+    width: min(100%, 360px);
+    min-height: 36px;
+    padding: 0 36px 0 10px;
+    border: 1px solid #8a8d90;
+    background: #ffffff;
+    color: #151515;
+    font-size: 14px;
 }
 
 .yaml-editor {
