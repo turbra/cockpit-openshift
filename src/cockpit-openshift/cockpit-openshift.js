@@ -9,7 +9,6 @@ var HEAVY_COMMAND_TIMEOUT_MS = 120000;
 var steps = [
     { id: 1, label: "Cluster details", description: "Define the cluster identity, installation baseline, host sizing, and registry access required before host discovery." },
     { id: 2, label: "Static network configurations", description: "Define the static network model with network-wide settings, host specific definitions, and YAML-assisted editing." },
-    { id: 3, label: "Operators", description: "Displayed for Assisted Installer parity, but not supported by the current local backend." },
     { id: 4, label: "Host discovery", description: "Generate discovery media, attach it to planned hosts, and verify the discovered inventory." },
     { id: 5, label: "Storage", description: "Choose the storage pool and installation disk layout for the local KVM-backed cluster." },
     { id: 6, label: "Networking", description: "Confirm machine networking, API and ingress VIPs, and the cluster-managed networking baseline." },
@@ -158,6 +157,7 @@ function createInitialState() {
         loadingCount: 0,
         loadingMessage: "",
         copyFeedback: "",
+        formDirty: false,
         pendingDestroyClusterId: "",
         pendingCancelDeployment: false,
         job: null,
@@ -167,6 +167,10 @@ function createInitialState() {
 
 function cloneState(source) {
     return JSON.parse(JSON.stringify(source));
+}
+
+function markDirty() {
+    state.formDirty = true;
 }
 
 function encodePayload(payload) {
@@ -642,7 +646,27 @@ function applyRequestToState(request) {
 }
 
 function currentStepMeta() {
-    return steps[state.currentStep - 1];
+    return steps.find(function (step) { return step.id === state.currentStep; }) || steps[0];
+}
+
+function lastStepId() {
+    return steps[steps.length - 1].id;
+}
+
+function nextStepId(stepId) {
+    var index = steps.findIndex(function (step) { return step.id === stepId; });
+    if (index < 0 || index >= steps.length - 1) {
+        return stepId;
+    }
+    return steps[index + 1].id;
+}
+
+function previousStepId(stepId) {
+    var index = steps.findIndex(function (step) { return step.id === stepId; });
+    if (index <= 0) {
+        return stepId;
+    }
+    return steps[index - 1].id;
 }
 
 function isValidIpAddress(value) {
@@ -742,14 +766,14 @@ function currentStepErrors() {
 }
 
 function furthestAvailableStep() {
-    var stepId;
+    var index;
 
-    for (stepId = 1; stepId < steps.length; stepId += 1) {
-        if (stepErrorsFor(stepId).length > 0) {
-            return stepId;
+    for (index = 0; index < steps.length; index += 1) {
+        if (stepErrorsFor(steps[index].id).length > 0) {
+            return steps[index].id;
         }
     }
-    return steps.length;
+    return lastStepId();
 }
 
 function overallErrors() {
@@ -757,14 +781,14 @@ function overallErrors() {
     var seen = {};
     var stepId;
 
-    for (stepId = 1; stepId <= steps.length; stepId += 1) {
-        stepErrorsFor(stepId).forEach(function (entry) {
+    steps.forEach(function (step, index) {
+        stepErrorsFor(step.id).forEach(function (entry) {
             if (!seen[entry]) {
                 seen[entry] = true;
                 all.push(entry);
             }
         });
-    }
+    });
 
     state.backendErrors.forEach(function (entry) {
         entry = String(entry || "").trim();
@@ -851,19 +875,10 @@ function renderStepList() {
 
         if (step.id === state.currentStep) {
             classes.push("wizard-step--active");
-            if (step.id === 3) {
-                classes.push("wizard-step--unsupported");
-            }
         } else if (step.id < state.currentStep || step.id < availableStep) {
             classes.push("wizard-step--complete");
-            if (step.id === 3) {
-                classes.push("wizard-step--unsupported");
-            }
         } else {
             classes.push("wizard-step--disabled");
-            if (step.id === 3) {
-                classes.push("wizard-step--unsupported");
-            }
         }
 
         if (canClick) {
@@ -879,7 +894,7 @@ function renderStepList() {
 
         var num = document.createElement("span");
         num.className = "wizard-step__number";
-        num.textContent = String(step.id);
+        num.textContent = String(index + 1);
         var labelWrap = document.createElement("span");
         labelWrap.className = "wizard-step__copy";
         var label = document.createElement("span");
@@ -901,6 +916,9 @@ function renderPanels() {
     steps.forEach(function (step) {
         refs["step" + step.id].hidden = step.id !== state.currentStep;
     });
+    if (refs.step3) {
+        refs.step3.hidden = true;
+    }
     refs.stepTitle.textContent = currentStepMeta().label;
     refs.stepDescription.textContent = currentStepMeta().description;
 }
@@ -1309,6 +1327,7 @@ function renderHostDefinitions() {
         nameInput.value = host.name;
         nameInput.addEventListener("input", function (event) {
             host.name = event.target.value;
+            markDirty();
             renderPreservingFocus(nameInput.id, event.target.selectionStart, event.target.selectionEnd);
             scheduleArtifactPreviewRefresh(true);
         });
@@ -1323,6 +1342,7 @@ function renderHostDefinitions() {
         macInput.value = host.macAddress;
         macInput.addEventListener("input", function (event) {
             host.macAddress = event.target.value;
+            markDirty();
             renderPreservingFocus(macInput.id, event.target.selectionStart, event.target.selectionEnd);
             scheduleArtifactPreviewRefresh(true);
         });
@@ -1337,6 +1357,7 @@ function renderHostDefinitions() {
         ipInput.value = host.ipAddress;
         ipInput.addEventListener("input", function (event) {
             host.ipAddress = event.target.value;
+            markDirty();
             if (!host.networkYamlCustomized) {
                 host.networkYaml = generateHostNetworkYaml(host);
             }
@@ -1433,9 +1454,8 @@ function reviewGroups() {
             ]
         },
         {
-            title: "Operators and discovery",
+            title: "Discovery",
             rows: [
-                ["Operators", "Displayed for workflow parity only; day-1 activation remains disabled in the local backend"],
                 ["SSH public key", state.sshPublicKeyValue.trim() ? "Pasted into form" : (state.sshPublicKeyFile.trim() || "Not set")],
                 ["Discovery media", discoveryMediaPath()]
             ]
@@ -1870,7 +1890,7 @@ function setJobFromStatus(status) {
         logTail: status.logTail || [],
         currentTask: status.currentTask || ""
     };
-    if (status.request) {
+    if (status.request && (status.running || pageContext !== "create" || clusterIdFromRequest(status.request) === clusterIdFromUrl)) {
         applyRequestToState(status.request);
     }
 }
@@ -1895,7 +1915,7 @@ function refreshStatus() {
         if (status.running) {
             state.wizardOpen = true;
             state.currentStep = 7;
-        } else if (state.job && state.job.state && state.job.state.status === "succeeded" && state.job.state.mode !== "destroy") {
+        } else if (clusterIdFromUrl && state.job && state.job.state && state.job.state.status === "succeeded" && state.job.state.mode !== "destroy") {
             state.wizardOpen = true;
             state.currentStep = 7;
         }
@@ -2011,8 +2031,7 @@ function loadClusters(silent) {
         state.clusters = result.clusters || [];
         if (
             clusterIdFromUrl &&
-            (!draftClusterId() || draftClusterId() !== clusterIdFromUrl) &&
-            !(state.job && state.job.state && state.job.state.clusterName)
+            (!draftClusterId() || draftClusterId() !== clusterIdFromUrl)
         ) {
             var selectedCluster = state.clusters.find(function (entry) {
                 return entry.clusterId === clusterIdFromUrl;
@@ -2045,12 +2064,14 @@ function runPreflight() {
 }
 
 function goNext() {
+    var nextStep;
     if (currentStepErrors().length > 0) {
         render();
         return;
     }
-    if (state.currentStep < steps.length) {
-        state.currentStep += 1;
+    nextStep = nextStepId(state.currentStep);
+    if (nextStep !== state.currentStep) {
+        state.currentStep = nextStep;
         render();
         if (state.currentStep === 7) {
             loadArtifacts("payload");
@@ -2062,8 +2083,9 @@ function goNext() {
 }
 
 function goBack() {
-    if (state.currentStep > 1) {
-        state.currentStep -= 1;
+    var previousStep = previousStepId(state.currentStep);
+    if (previousStep !== state.currentStep) {
+        state.currentStep = previousStep;
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
@@ -2084,6 +2106,7 @@ function startDeployment(mode) {
         }
         state.wizardOpen = true;
         state.currentStep = 7;
+        state.formDirty = false;
         loadArtifacts("current");
         refreshStatus();
     }).catch(function (error) {
@@ -2213,9 +2236,18 @@ function downloadCurrentArtifact() {
     window.URL.revokeObjectURL(href);
 }
 
+function warnBeforeUnload(event) {
+    if (!state.formDirty || (state.job && state.job.running)) {
+        return;
+    }
+    event.preventDefault();
+    event.returnValue = "";
+}
+
 function bindText(input, key, parser, afterChange) {
     input.addEventListener("input", function (event) {
         state[key] = parser ? parser(event.target.value) : event.target.value;
+        markDirty();
         clearBackendErrors();
         if (afterChange) {
             afterChange();
@@ -2249,18 +2281,21 @@ function bindEvents() {
 
     refs.openshiftVersion.addEventListener("change", function (event) {
         state.openshiftVersion = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.cpuArchitecture.addEventListener("change", function (event) {
         state.cpuArchitecture = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.controlPlaneCount.addEventListener("change", function (event) {
         state.controlPlaneCount = parseInt(event.target.value, 10);
+        markDirty();
         syncHostCount();
         syncGeneratedHostYaml();
         clearBackendErrors();
@@ -2269,30 +2304,35 @@ function bindEvents() {
     });
     refs.partnerIntegration.addEventListener("change", function (event) {
         state.partnerIntegration = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.bridgeName.addEventListener("change", function (event) {
         state.bridgeName = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.secondaryBridgeName.addEventListener("change", function (event) {
         state.secondaryBridgeName = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.storagePool.addEventListener("change", function (event) {
         state.storagePool = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
     });
     refs.performanceDomain.addEventListener("change", function (event) {
         state.performanceDomain = event.target.value;
+        markDirty();
         clearBackendErrors();
         render();
         scheduleArtifactPreviewRefresh(true);
@@ -2349,6 +2389,7 @@ function bindEvents() {
             refreshStatus();
         });
     }
+    window.addEventListener("beforeunload", warnBeforeUnload);
 }
 
 function cacheRefs() {

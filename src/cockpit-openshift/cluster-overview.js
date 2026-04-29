@@ -232,6 +232,9 @@ function renderKeyValueList(container, rows) {
 }
 
 function renderList(container, items) {
+    if (!container) {
+        return;
+    }
     container.innerHTML = "";
     items.forEach(function (item) {
         var li = document.createElement("li");
@@ -566,12 +569,7 @@ function cacheRefs() {
     refs.subscriptionSummary = document.getElementById("subscription-summary-list");
     refs.historyList = document.getElementById("history-list");
     refs.panels = {
-        overview: document.getElementById("overview-tab-panel"),
-        monitoring: document.getElementById("monitoring-tab-panel"),
-        "access-control": document.getElementById("access-control-tab-panel"),
-        "cluster-history": document.getElementById("cluster-history-tab-panel"),
-        support: document.getElementById("support-tab-panel"),
-        "add-hosts": document.getElementById("add-hosts-tab-panel")
+        overview: document.getElementById("overview-tab-panel")
     };
     refs.mainPanels = Object.keys(refs.panels).map(function (key) { return refs.panels[key]; });
 }

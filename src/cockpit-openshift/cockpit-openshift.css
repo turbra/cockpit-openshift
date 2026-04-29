@@ -1462,6 +1462,38 @@ body.is-resizing-yaml * {
     margin-top: 8px;
 }
 
+.fleet-empty-state--new {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.fleet-empty-state__icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #b8d9ff;
+    border-radius: 50%;
+    background: #eef4ff;
+    color: #0066cc;
+    font-size: 28px;
+    line-height: 1;
+}
+
+.fleet-empty-state__title {
+    color: #151515;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.fleet-empty-state__body {
+    max-width: 420px;
+    color: #4f5255;
+}
+
 .fleet-table-shell {
     border-radius: 6px;
     box-shadow: none;

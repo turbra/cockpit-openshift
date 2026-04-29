@@ -574,6 +574,36 @@ function syncPagination(items) {
     refs.nextButton.disabled = state.page >= pageCount;
 }
 
+function renderEmptyState(filteredCount) {
+    refs.empty.innerHTML = "";
+    if (state.items.length === 0) {
+        var icon = document.createElement("div");
+        var title = document.createElement("div");
+        var body = document.createElement("div");
+        var action = document.createElement("a");
+
+        icon.className = "fleet-empty-state__icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "+";
+        title.className = "fleet-empty-state__title";
+        title.textContent = "No clusters yet";
+        body.className = "fleet-empty-state__body";
+        body.textContent = "Create a local OpenShift cluster to populate this inventory.";
+        action.className = "action-button action-button--primary";
+        action.href = "create.html";
+        action.textContent = "Create cluster";
+
+        refs.empty.appendChild(icon);
+        refs.empty.appendChild(title);
+        refs.empty.appendChild(body);
+        refs.empty.appendChild(action);
+        refs.empty.classList.add("fleet-empty-state--new");
+        return;
+    }
+    refs.empty.classList.remove("fleet-empty-state--new");
+    refs.empty.textContent = filteredCount === 0 ? "No clusters match the current filters." : "";
+}
+
 function render() {
     var items = filteredItems();
     var visibleItems;
@@ -585,7 +615,7 @@ function render() {
     refs.empty.hidden = items.length > 0;
     refs.tableShell.hidden = items.length === 0;
     refs.pagination.hidden = items.length === 0;
-    refs.empty.textContent = "No clusters match the current filters.";
+    renderEmptyState(items.length);
     refs.resultCount.textContent = state.loadingMessage || (items.length + (items.length === 1 ? " cluster" : " clusters"));
     refs.refresh.disabled = state.loadingCount > 0;
     refs.refresh.classList.toggle("is-loading", state.loadingCount > 0);
