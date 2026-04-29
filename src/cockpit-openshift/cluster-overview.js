@@ -7,7 +7,9 @@ var refs = {};
 var state = {
     cluster: null,
     status: null,
-    activeTab: "overview"
+    activeTab: "overview",
+    pendingDestroy: false,
+    pageAlert: null
 };
 
 function backendCommand(command, extraArgs) {
@@ -181,6 +183,132 @@ function openActionsMenu() {
     refs.actionsButton.setAttribute("aria-expanded", "true");
 }
 
+function showPageAlert(message, type, title) {
+    state.pageAlert = {
+        title: title || (type === "danger" ? "Action failed" : "Notice"),
+        message: message,
+        type: type || "info"
+    };
+    renderPageAlert();
+}
+
+function clearPageAlert() {
+    state.pageAlert = null;
+    renderPageAlert();
+}
+
+function renderPageAlert() {
+    var alert;
+    var copy;
+    var title;
+    var body;
+    var close;
+
+    refs.pageAlertRoot.innerHTML = "";
+    if (!state.pageAlert) {
+        return;
+    }
+
+    alert = document.createElement("div");
+    copy = document.createElement("div");
+    title = document.createElement("div");
+    body = document.createElement("div");
+    close = document.createElement("button");
+
+    alert.className = "page-alert page-alert--" + state.pageAlert.type;
+    alert.setAttribute("role", state.pageAlert.type === "danger" ? "alert" : "status");
+    title.className = "page-alert__title";
+    title.textContent = state.pageAlert.title;
+    body.className = "page-alert__body";
+    body.textContent = state.pageAlert.message;
+    close.type = "button";
+    close.className = "page-alert__close";
+    close.setAttribute("aria-label", "Dismiss alert");
+    close.textContent = "x";
+    close.addEventListener("click", clearPageAlert);
+
+    copy.appendChild(title);
+    copy.appendChild(body);
+    alert.appendChild(copy);
+    alert.appendChild(close);
+    refs.pageAlertRoot.appendChild(alert);
+}
+
+function requestDestroyCluster() {
+    state.pendingDestroy = true;
+    renderConfirmation();
+}
+
+function cancelDestroyCluster() {
+    state.pendingDestroy = false;
+    renderConfirmation();
+}
+
+function confirmDestroyCluster() {
+    var cluster = state.cluster;
+    if (!cluster) {
+        return;
+    }
+    state.pendingDestroy = false;
+    renderConfirmation();
+    backendCommand("destroy", ["--cluster-id", cluster.clusterId]).then(function (result) {
+        if (!result.ok) {
+            showPageAlert((result.errors || ["Cluster destroy failed."]).join(" "), "danger", "Cluster destroy failed");
+            return;
+        }
+        window.location.href = "index.html";
+    }).catch(function (error) {
+        showPageAlert(String(error), "danger", "Cluster destroy failed");
+    });
+}
+
+function renderConfirmation() {
+    var card;
+    var copy;
+    var title;
+    var body;
+    var actions;
+    var confirmButton;
+    var cancelButton;
+
+    refs.confirmationRoot.innerHTML = "";
+    if (!state.pendingDestroy || !state.cluster) {
+        return;
+    }
+
+    card = document.createElement("div");
+    copy = document.createElement("div");
+    title = document.createElement("div");
+    body = document.createElement("div");
+    actions = document.createElement("div");
+    confirmButton = document.createElement("button");
+    cancelButton = document.createElement("button");
+
+    card.className = "confirmation-card confirmation-card--danger";
+    title.className = "confirmation-card__title";
+    title.textContent = "Destroy cluster " + state.cluster.clusterId + "?";
+    body.className = "confirmation-card__body";
+    body.textContent = "This will delete local VMs, disks, and generated install state for the cluster.";
+    actions.className = "confirmation-card__actions";
+
+    confirmButton.type = "button";
+    confirmButton.className = "action-button action-button--danger";
+    confirmButton.textContent = "Destroy";
+    confirmButton.addEventListener("click", confirmDestroyCluster);
+    cancelButton.type = "button";
+    cancelButton.className = "action-button action-button--secondary";
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", cancelDestroyCluster);
+
+    copy.appendChild(title);
+    copy.appendChild(body);
+    actions.appendChild(confirmButton);
+    actions.appendChild(cancelButton);
+    card.appendChild(copy);
+    card.appendChild(actions);
+    refs.confirmationRoot.appendChild(card);
+}
+
 function renderActions(cluster) {
     refs.actionsMenu.innerHTML = "";
 
@@ -210,18 +338,7 @@ function renderActions(cluster) {
     addAction("Refresh inventory", refreshPage, false);
 
     addAction("Destroy cluster", function () {
-        if (!window.confirm("Destroy cluster " + cluster.clusterId + "?")) {
-            return;
-        }
-        backendCommand("destroy", ["--cluster-id", cluster.clusterId]).then(function (result) {
-            if (!result.ok) {
-                window.alert((result.errors || ["Cluster destroy failed"]).join("\n"));
-                return;
-            }
-            window.location.href = "index.html";
-        }).catch(function (error) {
-            window.alert(String(error));
-        });
+        requestDestroyCluster();
     }, cluster.synthetic);
 }
 
@@ -331,6 +448,8 @@ function renderOverview() {
     ]);
 
     renderActions(cluster);
+    renderPageAlert();
+    renderConfirmation();
 }
 
 function refreshPage() {
@@ -356,6 +475,8 @@ function cacheRefs() {
     refs.refresh = document.getElementById("overview-refresh-button");
     refs.actionsButton = document.getElementById("overview-actions-button");
     refs.actionsMenu = document.getElementById("overview-actions-menu");
+    refs.pageAlertRoot = document.getElementById("overview-page-alert");
+    refs.confirmationRoot = document.getElementById("overview-confirmation-root");
     refs.tabs = Array.prototype.slice.call(document.querySelectorAll(".overview-tabs__tab"));
     refs.missing = document.getElementById("cluster-missing");
     refs.detailsList = document.getElementById("cluster-details-list");
