@@ -868,7 +868,7 @@ function renderStepList() {
     var availableStep = furthestAvailableStep();
 
     refs.stepList.innerHTML = "";
-    steps.forEach(function (step) {
+    steps.forEach(function (step, index) {
         var item = document.createElement("li");
         var classes = ["wizard-step"];
         var canClick = step.id <= availableStep || step.id < state.currentStep || state.currentStep === 7;
