@@ -4,7 +4,7 @@
 KVM/libvirt host.
 
 [![License: GPL-3.0](https://img.shields.io/github/license/turbra/cockpit-openshift)](LICENSE)
-![OpenShift 4.20](https://img.shields.io/badge/OpenShift-4.20-red)
+![OpenShift 4.21.7](https://img.shields.io/badge/OpenShift-4.21.7-red)
 ![Cockpit](https://img.shields.io/badge/Cockpit-plugin-blue)
 ![KVM/libvirt](https://img.shields.io/badge/KVM-libvirt-blue)
 ![RHEL 10](https://img.shields.io/badge/RHEL-10-red)

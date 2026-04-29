@@ -42,6 +42,46 @@ var artifactPreviewTimer = null;
 var lastArtifactPreviewKey = "";
 var pageContext = "";
 var clusterIdFromUrl = "";
+var CLUSTER_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+var MAC_ADDRESS_PATTERN = /^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/;
+var errorMessages = {
+    clusterNameRequired: "Cluster name is required.",
+    clusterNameInvalid: "Cluster name must contain only lowercase letters, numbers, and hyphens.",
+    baseDomainRequired: "Base domain is required.",
+    cpuArchitectureUnsupported: "CPU architecture must remain x86_64.",
+    nodeVcpusInvalid: "Control plane vCPU count must be greater than zero.",
+    nodeMemoryInvalid: "Control plane memory must be greater than zero.",
+    pullSecretRequired: "Pull secret is required.",
+    primaryBridgeRequired: "Primary bridge is required.",
+    primaryInterfaceRequired: "Primary guest interface name is required.",
+    secondaryInterfaceRequired: "Secondary guest interface name is required.",
+    secondaryBridgeDuplicate: "Secondary bridge must differ from primary bridge.",
+    sshPublicKeyRequired: "SSH public key is required.",
+    storagePoolRequired: "Storage pool is required.",
+    diskSizeInvalid: "Installation disk size must be greater than zero.",
+    machineCidrRequired: "Machine network CIDR is required.",
+    machineCidrInvalid: "Machine network CIDR must be a valid CIDR block.",
+    apiVipRequired: "API VIP is required.",
+    apiVipInvalid: "API VIP must be a valid IP address.",
+    ingressVipRequired: "Ingress VIP is required.",
+    ingressVipInvalid: "Ingress VIP must be a valid IP address."
+};
+
+function requiredMessage(label) {
+    return label + " is required.";
+}
+
+function hostNameInvalidMessage(index) {
+    return "Host " + (index + 1) + " name must contain only lowercase letters, numbers, and hyphens.";
+}
+
+function hostMacInvalidMessage(index) {
+    return "Host " + (index + 1) + " MAC address must be a valid MAC address.";
+}
+
+function hostIpInvalidMessage(index) {
+    return "Host " + (index + 1) + " private IP must be a valid IP address.";
+}
 
 function defaultHostNames(count) {
     if (count === 1) {
@@ -515,44 +555,93 @@ function currentStepMeta() {
     return steps[state.currentStep - 1];
 }
 
+function isValidIpAddress(value) {
+    var octets = value.trim().split(".");
+    return octets.length === 4 && octets.every(function (octet) {
+        if (!/^\d+$/.test(octet)) {
+            return false;
+        }
+        var number = Number(octet);
+        return number >= 0 && number <= 255 && String(number) === String(parseInt(octet, 10));
+    });
+}
+
+function isValidCidr(value) {
+    var parts = value.trim().split("/");
+    var prefix;
+    if (parts.length !== 2 || !isValidIpAddress(parts[0]) || !/^\d+$/.test(parts[1])) {
+        return false;
+    }
+    prefix = Number(parts[1]);
+    return prefix >= 0 && prefix <= 32;
+}
+
 function stepErrorsFor(stepId) {
     var errors = [];
 
     if (stepId === 1) {
-        if (!state.clusterName.trim()) errors.push("Cluster name");
-        if (!state.baseDomain.trim()) errors.push("Base domain");
-        if (state.cpuArchitecture !== "x86_64") errors.push("CPU architecture");
-        if (!(parseInt(state.nodeVcpus, 10) > 0)) errors.push("Control plane vCPU count");
-        if (!(parseInt(state.nodeMemoryMb, 10) > 0)) errors.push("Control plane memory");
-        if (!state.pullSecretValue.trim() && !state.pullSecretFile.trim()) errors.push("Pull secret");
+        if (!state.clusterName.trim()) {
+            errors.push(errorMessages.clusterNameRequired);
+        } else if (!CLUSTER_NAME_PATTERN.test(state.clusterName.trim())) {
+            errors.push(errorMessages.clusterNameInvalid);
+        }
+        if (!state.baseDomain.trim()) errors.push(errorMessages.baseDomainRequired);
+        if (state.cpuArchitecture !== "x86_64") errors.push(errorMessages.cpuArchitectureUnsupported);
+        if (!(parseInt(state.nodeVcpus, 10) > 0)) errors.push(errorMessages.nodeVcpusInvalid);
+        if (!(parseInt(state.nodeMemoryMb, 10) > 0)) errors.push(errorMessages.nodeMemoryInvalid);
+        if (!state.pullSecretValue.trim() && !state.pullSecretFile.trim()) errors.push(errorMessages.pullSecretRequired);
     }
 
     if (stepId === 2) {
-        if (!state.bridgeName) errors.push("Primary bridge");
-        if (!state.primaryInterfaceName.trim()) errors.push("Primary guest interface name");
-        if (state.secondaryBridgeName && !state.secondaryInterfaceName.trim()) errors.push("Secondary guest interface name");
-        if (state.secondaryBridgeName && state.secondaryBridgeName === state.bridgeName) errors.push("Secondary bridge must differ from primary bridge");
+        if (!state.bridgeName) errors.push(errorMessages.primaryBridgeRequired);
+        if (!state.primaryInterfaceName.trim()) errors.push(errorMessages.primaryInterfaceRequired);
+        if (state.secondaryBridgeName && !state.secondaryInterfaceName.trim()) errors.push(errorMessages.secondaryInterfaceRequired);
+        if (state.secondaryBridgeName && state.secondaryBridgeName === state.bridgeName) errors.push(errorMessages.secondaryBridgeDuplicate);
         state.hosts.forEach(function (host, index) {
-            if (!host.name.trim()) errors.push("Host " + (index + 1) + " name");
-            if (!host.macAddress.trim()) errors.push("Host " + (index + 1) + " MAC address");
-            if (!host.ipAddress.trim()) errors.push("Host " + (index + 1) + " private IP");
-            if (!host.networkYaml.trim()) errors.push("Host " + (index + 1) + " network YAML");
+            if (!host.name.trim()) {
+                errors.push(requiredMessage("Host " + (index + 1) + " name"));
+            } else if (!CLUSTER_NAME_PATTERN.test(host.name.trim())) {
+                errors.push(hostNameInvalidMessage(index));
+            }
+            if (!host.macAddress.trim()) {
+                errors.push(requiredMessage("Host " + (index + 1) + " MAC address"));
+            } else if (!MAC_ADDRESS_PATTERN.test(host.macAddress.trim())) {
+                errors.push(hostMacInvalidMessage(index));
+            }
+            if (!host.ipAddress.trim()) {
+                errors.push(requiredMessage("Host " + (index + 1) + " private IP"));
+            } else if (!isValidIpAddress(host.ipAddress.trim())) {
+                errors.push(hostIpInvalidMessage(index));
+            }
+            if (!host.networkYaml.trim()) errors.push(requiredMessage("Host " + (index + 1) + " network YAML"));
         });
     }
 
     if (stepId === 4) {
-        if (!state.sshPublicKeyValue.trim() && !state.sshPublicKeyFile.trim()) errors.push("SSH public key");
+        if (!state.sshPublicKeyValue.trim() && !state.sshPublicKeyFile.trim()) errors.push(errorMessages.sshPublicKeyRequired);
     }
 
     if (stepId === 5) {
-        if (!state.storagePool) errors.push("Storage pool");
-        if (!(parseInt(state.diskSizeGb, 10) > 0)) errors.push("Installation disk size");
+        if (!state.storagePool) errors.push(errorMessages.storagePoolRequired);
+        if (!(parseInt(state.diskSizeGb, 10) > 0)) errors.push(errorMessages.diskSizeInvalid);
     }
 
     if (stepId === 6) {
-        if (!state.machineCidr.trim()) errors.push("Machine network CIDR");
-        if (state.controlPlaneCount === 3 && !state.apiVip.trim()) errors.push("API VIP");
-        if (state.controlPlaneCount === 3 && !state.ingressVip.trim()) errors.push("Ingress VIP");
+        if (!state.machineCidr.trim()) {
+            errors.push(errorMessages.machineCidrRequired);
+        } else if (!isValidCidr(state.machineCidr.trim())) {
+            errors.push(errorMessages.machineCidrInvalid);
+        }
+        if (state.controlPlaneCount === 3 && !state.apiVip.trim()) {
+            errors.push(errorMessages.apiVipRequired);
+        } else if (state.controlPlaneCount === 3 && !isValidIpAddress(state.apiVip.trim())) {
+            errors.push(errorMessages.apiVipInvalid);
+        }
+        if (state.controlPlaneCount === 3 && !state.ingressVip.trim()) {
+            errors.push(errorMessages.ingressVipRequired);
+        } else if (state.controlPlaneCount === 3 && !isValidIpAddress(state.ingressVip.trim())) {
+            errors.push(errorMessages.ingressVipInvalid);
+        }
     }
 
     return errors;
@@ -613,25 +702,29 @@ function setFieldInvalid(inputRef, fieldRef, invalid) {
 
 function renderFieldValidation() {
     var errors = currentStepErrors();
+    var clusterNameError = errors.indexOf(errorMessages.clusterNameRequired) >= 0 || errors.indexOf(errorMessages.clusterNameInvalid) >= 0;
 
-    setFieldInvalid(refs.clusterName, refs.clusterNameField, errors.indexOf("Cluster name") >= 0);
-    setFieldInvalid(refs.baseDomain, refs.baseDomainField, errors.indexOf("Base domain") >= 0);
-    setFieldInvalid(refs.pullSecretValue, refs.pullSecretValueField, errors.indexOf("Pull secret") >= 0);
-    setFieldInvalid(refs.pullSecretFile, refs.pullSecretFileField, errors.indexOf("Pull secret") >= 0);
-    setFieldInvalid(refs.cpuArchitecture, refs.cpuArchitectureField, errors.indexOf("CPU architecture") >= 0);
-    setFieldInvalid(refs.bridgeName, refs.bridgeNameField, errors.indexOf("Primary bridge") >= 0);
-    setFieldInvalid(refs.secondaryBridgeName, refs.secondaryBridgeNameField, errors.indexOf("Secondary bridge must differ from primary bridge") >= 0);
-    setFieldInvalid(refs.sshPublicKeyValue, refs.sshPublicKeyValueField, errors.indexOf("SSH public key") >= 0);
-    setFieldInvalid(refs.sshPublicKeyFile, refs.sshPublicKeyFileField, errors.indexOf("SSH public key") >= 0);
-    setFieldInvalid(refs.storagePool, refs.storagePoolField, errors.indexOf("Storage pool") >= 0);
-    setFieldInvalid(refs.nodeVcpus, refs.nodeVcpusField, errors.indexOf("Control plane vCPU count") >= 0);
-    setFieldInvalid(refs.nodeMemoryMb, refs.nodeMemoryMbField, errors.indexOf("Control plane memory") >= 0);
-    setFieldInvalid(refs.diskSizeGb, refs.diskSizeGbField, errors.indexOf("Installation disk size") >= 0);
-    setFieldInvalid(refs.machineCidr, refs.machineCidrField, errors.indexOf("Machine network CIDR") >= 0);
-    setFieldInvalid(refs.apiVip, refs.apiVipField, errors.indexOf("API VIP") >= 0);
-    setFieldInvalid(refs.ingressVip, refs.ingressVipField, errors.indexOf("Ingress VIP") >= 0);
+    setFieldInvalid(refs.clusterName, refs.clusterNameField, clusterNameError);
+    setFieldInvalid(refs.baseDomain, refs.baseDomainField, errors.indexOf(errorMessages.baseDomainRequired) >= 0);
+    setFieldInvalid(refs.pullSecretValue, refs.pullSecretValueField, errors.indexOf(errorMessages.pullSecretRequired) >= 0);
+    setFieldInvalid(refs.pullSecretFile, refs.pullSecretFileField, errors.indexOf(errorMessages.pullSecretRequired) >= 0);
+    setFieldInvalid(refs.cpuArchitecture, refs.cpuArchitectureField, errors.indexOf(errorMessages.cpuArchitectureUnsupported) >= 0);
+    setFieldInvalid(refs.bridgeName, refs.bridgeNameField, errors.indexOf(errorMessages.primaryBridgeRequired) >= 0);
+    setFieldInvalid(refs.secondaryBridgeName, refs.secondaryBridgeNameField, errors.indexOf(errorMessages.secondaryBridgeDuplicate) >= 0);
+    setFieldInvalid(refs.sshPublicKeyValue, refs.sshPublicKeyValueField, errors.indexOf(errorMessages.sshPublicKeyRequired) >= 0);
+    setFieldInvalid(refs.sshPublicKeyFile, refs.sshPublicKeyFileField, errors.indexOf(errorMessages.sshPublicKeyRequired) >= 0);
+    setFieldInvalid(refs.storagePool, refs.storagePoolField, errors.indexOf(errorMessages.storagePoolRequired) >= 0);
+    setFieldInvalid(refs.nodeVcpus, refs.nodeVcpusField, errors.indexOf(errorMessages.nodeVcpusInvalid) >= 0);
+    setFieldInvalid(refs.nodeMemoryMb, refs.nodeMemoryMbField, errors.indexOf(errorMessages.nodeMemoryInvalid) >= 0);
+    setFieldInvalid(refs.diskSizeGb, refs.diskSizeGbField, errors.indexOf(errorMessages.diskSizeInvalid) >= 0);
+    setFieldInvalid(refs.machineCidr, refs.machineCidrField, errors.indexOf(errorMessages.machineCidrRequired) >= 0 || errors.indexOf(errorMessages.machineCidrInvalid) >= 0);
+    setFieldInvalid(refs.apiVip, refs.apiVipField, errors.indexOf(errorMessages.apiVipRequired) >= 0 || errors.indexOf(errorMessages.apiVipInvalid) >= 0);
+    setFieldInvalid(refs.ingressVip, refs.ingressVipField, errors.indexOf(errorMessages.ingressVipRequired) >= 0 || errors.indexOf(errorMessages.ingressVipInvalid) >= 0);
 
-    refs.clusterNameError.hidden = errors.indexOf("Cluster name") < 0;
+    refs.clusterNameError.hidden = !clusterNameError;
+    refs.clusterNameError.textContent = errors.indexOf(errorMessages.clusterNameInvalid) >= 0
+        ? errorMessages.clusterNameInvalid
+        : errorMessages.clusterNameRequired;
 }
 
 function renderValidationAlert() {
@@ -1088,6 +1181,9 @@ function renderHostDefinitions() {
 
     refs.hostDefinitionList.innerHTML = "";
     state.hosts.forEach(function (host, index) {
+        var hostNameInvalid = errors.indexOf(requiredMessage("Host " + (index + 1) + " name")) >= 0 || errors.indexOf(hostNameInvalidMessage(index)) >= 0;
+        var hostMacInvalid = errors.indexOf(requiredMessage("Host " + (index + 1) + " MAC address")) >= 0 || errors.indexOf(hostMacInvalidMessage(index)) >= 0;
+        var hostIpInvalid = errors.indexOf(requiredMessage("Host " + (index + 1) + " private IP")) >= 0 || errors.indexOf(hostIpInvalidMessage(index)) >= 0;
         var card = document.createElement("article");
         var header = document.createElement("div");
         var title = document.createElement("h4");
@@ -1112,7 +1208,7 @@ function renderHostDefinitions() {
         title.textContent = "Host " + (index + 1);
         chip.textContent = state.controlPlaneCount === 1 ? "Single control plane" : "Control plane";
 
-        nameField.className = "form-field" + (errors.indexOf("Host " + (index + 1) + " name") >= 0 ? " is-invalid" : "");
+        nameField.className = "form-field" + (hostNameInvalid ? " is-invalid" : "");
         nameLabel.className = "field-label";
         nameLabel.textContent = "Hostname";
         nameLabel.htmlFor = "host-name-" + index;
@@ -1124,8 +1220,9 @@ function renderHostDefinitions() {
             renderPreservingFocus(nameInput.id, event.target.selectionStart, event.target.selectionEnd);
             scheduleArtifactPreviewRefresh(true);
         });
+        nameInput.addEventListener("blur", render);
 
-        macField.className = "form-field" + (errors.indexOf("Host " + (index + 1) + " MAC address") >= 0 ? " is-invalid" : "");
+        macField.className = "form-field" + (hostMacInvalid ? " is-invalid" : "");
         macLabel.className = "field-label";
         macLabel.textContent = "Primary NIC MAC address";
         macLabel.htmlFor = "host-mac-" + index;
@@ -1137,8 +1234,9 @@ function renderHostDefinitions() {
             renderPreservingFocus(macInput.id, event.target.selectionStart, event.target.selectionEnd);
             scheduleArtifactPreviewRefresh(true);
         });
+        macInput.addEventListener("blur", render);
 
-        ipField.className = "form-field" + (errors.indexOf("Host " + (index + 1) + " private IP") >= 0 ? " is-invalid" : "");
+        ipField.className = "form-field" + (hostIpInvalid ? " is-invalid" : "");
         ipLabel.className = "field-label";
         ipLabel.textContent = "Private cluster IP";
         ipLabel.htmlFor = "host-ip-" + index;
@@ -1153,6 +1251,7 @@ function renderHostDefinitions() {
             renderPreservingFocus(ipInput.id, event.target.selectionStart, event.target.selectionEnd);
             scheduleArtifactPreviewRefresh(true);
         });
+        ipInput.addEventListener("blur", render);
 
         nameField.appendChild(nameLabel);
         nameField.appendChild(nameInput);
@@ -1865,6 +1964,9 @@ function bindText(input, key, parser, afterChange) {
         }
         render();
         scheduleArtifactPreviewRefresh(true);
+    });
+    input.addEventListener("blur", function () {
+        render();
     });
 }
 
