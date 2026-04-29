@@ -330,6 +330,8 @@ function renderRowActionCell(item) {
 function renderRow(item) {
     var row = document.createElement("tr");
     var nameCell = document.createElement("td");
+    var primaryName = document.createElement("div");
+    var secondaryName = document.createElement("div");
     var statusCell = document.createElement("td");
     var typeCell = document.createElement("td");
     var createdCell = document.createElement("td");
@@ -344,7 +346,12 @@ function renderRow(item) {
     row.setAttribute("role", "button");
     row.setAttribute("aria-label", "Open cluster overview for " + item.clusterId);
 
-    nameCell.innerHTML = '<div class="inventory-table__primary">' + (item.clusterName || item.clusterId) + '</div><div class="inventory-table__secondary">' + item.clusterId + "</div>";
+    primaryName.className = "inventory-table__primary";
+    primaryName.textContent = item.clusterName || item.clusterId || "Unknown cluster";
+    secondaryName.className = "inventory-table__secondary";
+    secondaryName.textContent = item.clusterId || "Unknown ID";
+    nameCell.appendChild(primaryName);
+    nameCell.appendChild(secondaryName);
     statusCell.innerHTML = renderStatusChip(item);
     typeCell.textContent = inventoryTypeLabel(item);
     createdCell.textContent = formatCreatedDate(item.createdAt);

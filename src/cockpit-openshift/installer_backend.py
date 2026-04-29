@@ -27,6 +27,11 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover - optional validation dependency
+    yaml = None
+
 
 STATE_DIR = Path("/var/lib/cockpit-openshift")
 STATE_FILE = STATE_DIR / "state.json"
@@ -62,6 +67,10 @@ PERFORMANCE_DOMAINS = {
     "bronze": {"cpu_shares": 167},
 }
 GUEST_PRIMARY_INTERFACE = "eth0"
+
+
+def complete_error(label: str) -> str:
+    return f"{label} is required."
 
 
 def enforce_runtime_permissions() -> None:
@@ -291,22 +300,75 @@ def normalize_topology(control_plane_count: int) -> str:
 
 def validate_cluster_name(value: str, errors: list[str]) -> None:
     if not value:
-        errors.append("Cluster name")
+        errors.append(complete_error("Cluster name"))
         return
     if not CLUSTER_NAME_PATTERN.match(value):
-        errors.append("Cluster name must contain only lowercase letters, numbers, and hyphens")
+        errors.append("Cluster name must contain only lowercase letters, numbers, and hyphens.")
 
 
 def validate_ip(value: str, field_name: str, errors: list[str]) -> None:
     try:
         ipaddress.ip_address(value)
     except ValueError:
-        errors.append(field_name)
+        errors.append(f"{field_name} must be a valid IP address.")
 
 
 def validate_mac(value: str, field_name: str, errors: list[str]) -> None:
     if not MAC_ADDRESS_PATTERN.match(value):
-        errors.append(field_name)
+        errors.append(f"{field_name} must be a valid MAC address.")
+
+
+def allowed_input_roots() -> list[Path]:
+    roots: list[Path] = []
+    for env_name in ("SUDO_USER", "LOGNAME", "USER"):
+        user_name = os.environ.get(env_name, "").strip()
+        if not user_name or user_name == "root":
+            continue
+        try:
+            import pwd
+
+            home_dir = Path(pwd.getpwnam(user_name).pw_dir).resolve()
+        except Exception:
+            continue
+        if home_dir not in roots:
+            roots.append(home_dir)
+
+    home_value = os.environ.get("HOME", "").strip()
+    if home_value:
+        try:
+            home_dir = Path(home_value).resolve()
+        except Exception:
+            home_dir = None
+        if home_dir and home_dir.name != "root" and home_dir not in roots:
+            roots.append(home_dir)
+
+    for root in [SECRET_DIR]:
+        try:
+            roots.append(root.resolve())
+        except Exception:
+            pass
+    return roots
+
+
+def path_is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def resolve_allowed_input_file(path_str: str) -> Path | None:
+    if not path_str:
+        return None
+    try:
+        path = Path(path_str).expanduser().resolve(strict=False)
+    except Exception:
+        return None
+    for root in allowed_input_roots():
+        if path_is_relative_to(path, root):
+            return path
+    return None
 
 
 def query_storage_pools() -> list[dict]:
@@ -456,12 +518,34 @@ def secret_material(request: dict) -> tuple[str, str]:
 
 
 def read_optional_file(path_str: str) -> str:
-    if not path_str:
+    path = resolve_allowed_input_file(path_str)
+    if path is None:
         return ""
-    path = Path(path_str)
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8").strip()
+
+
+def secret_is_single_line(value: str) -> bool:
+    return "\n" not in value and "\r" not in value
+
+
+def validate_network_yaml(value: str, field_name: str, errors: list[str]) -> None:
+    if "\x00" in value:
+        errors.append(f"{field_name} must not contain NUL bytes.")
+        return
+    if not any(":" in line for line in value.splitlines() if line.strip()):
+        errors.append(f"{field_name} must be valid YAML.")
+        return
+    if yaml is None:
+        return
+    try:
+        parsed = yaml.safe_load(value)
+    except Exception as exc:
+        errors.append(f"{field_name} must be valid YAML: {exc}")
+        return
+    if not isinstance(parsed, dict):
+        errors.append(f"{field_name} must be a YAML mapping.")
 
 
 def derive_request_paths(request: dict) -> dict:
@@ -1272,34 +1356,34 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
 
     validate_cluster_name(cluster_name, errors)
     if not base_domain:
-        errors.append("Base domain")
+        errors.append(complete_error("Base domain"))
     if cpu_architecture != SUPPORTED_ARCH:
-        errors.append("CPU architecture must remain x86_64")
+        errors.append("CPU architecture must remain x86_64.")
     if hosts_network != "static":
-        errors.append("Hosts' network configuration must be Static IP, bridges, and bonds")
+        errors.append("Hosts' network configuration must be Static IP, bridges, and bonds.")
     if payload.get("disconnectedEnvironment"):
-        errors.append("Disconnected installs are not wired yet")
+        errors.append("Disconnected installs are not wired yet.")
     if payload.get("encryptionControlPlane") or payload.get("encryptionWorkers") or payload.get("encryptionArbiter"):
-        errors.append("Disk encryption toggles are not wired yet")
+        errors.append("Disk encryption toggles are not wired yet.")
     if performance_domain not in PERFORMANCE_DOMAINS:
-        errors.append("Performance domain")
+        errors.append("Performance domain must be one of none, gold, silver, or bronze.")
     if not match:
-        errors.append("OpenShift version")
+        errors.append("OpenShift version must use the format 'OpenShift x.y.z'.")
 
     compute = payload.get("compute", {}) or {}
     node_vcpus = int(compute.get("nodeVcpus", 0) or 0)
     node_memory_mb = int(compute.get("nodeMemoryMb", 0) or 0)
     if node_vcpus <= 0:
-        errors.append("Control plane vCPU count")
+        errors.append("Control plane vCPU count must be greater than zero.")
     if node_memory_mb <= 0:
-        errors.append("Control plane memory")
+        errors.append("Control plane memory must be greater than zero.")
 
     storage = payload.get("storage", {}) or {}
     disk_size_gb = int(storage.get("diskSizeGb", 0) or 0)
     if disk_size_gb <= 0:
-        errors.append("Root disk size")
+        errors.append("Root disk size must be greater than zero.")
     if not storage_pool_name:
-        errors.append("Storage pool")
+        errors.append(complete_error("Storage pool"))
 
     network = payload.get("network", {}) or {}
     machine_cidr = str(network.get("machineCidr", "")).strip()
@@ -1312,12 +1396,12 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
     private_vlan_id = str(network.get("privateVlanId", "")).strip()
 
     if not machine_cidr:
-        errors.append("Machine network CIDR")
+        errors.append(complete_error("Machine network CIDR"))
     else:
         try:
             ipaddress.ip_network(machine_cidr, strict=False)
         except ValueError:
-            errors.append("Machine network CIDR")
+            errors.append("Machine network CIDR must be a valid CIDR block.")
     if machine_gateway:
         validate_ip(machine_gateway, "Machine gateway", errors)
     if dns_servers:
@@ -1327,7 +1411,7 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
     raw_hosts = payload.get("hosts", []) or []
     expected_node_count = 1 if topology == "sno" else 3
     if len(raw_hosts) != expected_node_count:
-        errors.append(f"Exactly {expected_node_count} host definitions are required")
+        errors.append(f"Exactly {expected_node_count} host definitions are required.")
 
     hosts: list[dict] = []
     node_ips: list[str] = []
@@ -1339,19 +1423,21 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
         host_yaml = str(host_payload.get("networkYaml", "")).rstrip()
 
         if not host_name:
-            errors.append(f"Host {idx + 1} name")
+            errors.append(complete_error(f"Host {idx + 1} name"))
         elif not CLUSTER_NAME_PATTERN.match(host_name):
-            errors.append(f"Host {idx + 1} name must contain only lowercase letters, numbers, and hyphens")
+            errors.append(f"Host {idx + 1} name must contain only lowercase letters, numbers, and hyphens.")
         if not host_mac:
-            errors.append(f"Host {idx + 1} MAC address")
+            errors.append(complete_error(f"Host {idx + 1} MAC address"))
         else:
             validate_mac(host_mac, f"Host {idx + 1} MAC address", errors)
         if not host_ip:
-            errors.append(f"Host {idx + 1} private IP")
+            errors.append(complete_error(f"Host {idx + 1} private IP"))
         else:
             validate_ip(host_ip, f"Host {idx + 1} private IP", errors)
         if not host_yaml:
-            errors.append(f"Host {idx + 1} network YAML")
+            errors.append(complete_error(f"Host {idx + 1} network YAML"))
+        else:
+            validate_network_yaml(host_yaml, f"Host {idx + 1} network YAML", errors)
 
         hosts.append(
             {
@@ -1367,46 +1453,81 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
 
     if topology == "compact":
         if not api_vip:
-            errors.append("API VIP")
+            errors.append(complete_error("API VIP"))
         else:
             validate_ip(api_vip, "API VIP", errors)
         if not ingress_vip:
-            errors.append("Ingress VIP")
+            errors.append(complete_error("Ingress VIP"))
         else:
             validate_ip(ingress_vip, "Ingress VIP", errors)
         if api_vip and ingress_vip and api_vip == ingress_vip:
-            errors.append("API VIP and ingress VIP must differ for compact clusters")
+            errors.append("API VIP and ingress VIP must differ for compact clusters.")
         if api_vip and api_vip in node_ips:
-            errors.append("API VIP must not match a control plane node IP")
+            errors.append("API VIP must not match a control plane node IP.")
         if ingress_vip and ingress_vip in node_ips:
-            errors.append("Ingress VIP must not match a control plane node IP")
+            errors.append("Ingress VIP must not match a control plane node IP.")
     else:
         api_vip = node_ips[0] if node_ips else ""
         ingress_vip = node_ips[0] if node_ips else ""
 
     if not bridge_name:
-        errors.append("Bridge interface")
+        errors.append(complete_error("Bridge interface"))
     else:
         bridges = query_bridges()
         if bridge_name not in bridges:
-            errors.append("Bridge interface")
+            errors.append("Bridge interface must exist on this host.")
         if secondary_bridge_name and secondary_bridge_name not in bridges:
-            errors.append("Secondary bridge")
+            errors.append("Secondary bridge must exist on this host.")
         if secondary_bridge_name and secondary_bridge_name == bridge_name:
-            errors.append("Secondary bridge must differ from primary bridge")
+            errors.append("Secondary bridge must differ from primary bridge.")
 
     if not pull_secret_value:
-        if not pull_secret_file or not Path(pull_secret_file).exists():
-            errors.append("Pull secret")
+        pull_secret_path = resolve_allowed_input_file(pull_secret_file)
+        if not pull_secret_file:
+            errors.append(complete_error("Pull secret"))
+        elif pull_secret_path is None:
+            errors.append("Pull secret file must be under your home directory.")
+        elif not pull_secret_path.exists():
+            errors.append("Pull secret file was not found.")
     else:
+        if not secret_is_single_line(pull_secret_value):
+            errors.append("Pull secret must be a single-line JSON value.")
         try:
             json.loads(pull_secret_value)
         except json.JSONDecodeError:
-            errors.append("Pull secret")
+            errors.append("Pull secret must be valid JSON.")
 
     if not ssh_public_key_value:
-        if not ssh_public_key_file or not Path(ssh_public_key_file).exists():
-            errors.append("SSH public key")
+        ssh_public_key_path = resolve_allowed_input_file(ssh_public_key_file)
+        if not ssh_public_key_file:
+            errors.append(complete_error("SSH public key"))
+        elif ssh_public_key_path is None:
+            errors.append("SSH public key file must be under your home directory.")
+        elif not ssh_public_key_path.exists():
+            errors.append("SSH public key file was not found.")
+    elif not secret_is_single_line(ssh_public_key_value):
+        errors.append("SSH public key must be a single line.")
+
+    pull_secret_material = pull_secret_value if pull_secret_value else read_optional_file(pull_secret_file)
+    ssh_public_key_material = ssh_public_key_value if ssh_public_key_value else read_optional_file(ssh_public_key_file)
+    if (
+        pull_secret_material
+        and not secret_is_single_line(pull_secret_material)
+        and "Pull secret must be a single-line JSON value." not in errors
+    ):
+        errors.append("Pull secret must be a single-line JSON value.")
+    if pull_secret_material and secret_is_single_line(pull_secret_material):
+        try:
+            json.loads(pull_secret_material)
+        except json.JSONDecodeError:
+            if "Pull secret must be valid JSON." not in errors:
+                errors.append("Pull secret must be valid JSON.")
+    if (
+        ssh_public_key_material
+        and not secret_is_single_line(ssh_public_key_material)
+        and "SSH public key must be a single line." not in errors
+    ):
+        errors.append("SSH public key must be a single line.")
 
     try:
         pool = determine_pool(storage_pool_name)
@@ -1432,9 +1553,9 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
                 try:
                     run(binary, "--help", check=True)
                 except Exception:
-                    errors.append(binary)
+                    errors.append(f"Required command '{binary}' is not available.")
             else:
-                errors.append(binary)
+                errors.append(f"Required command '{binary}' is not available.")
 
     normalized = {
         "clusterName": cluster_name,
@@ -1477,8 +1598,8 @@ def validate_payload(payload: dict) -> tuple[dict, list[str]]:
             "sshPublicKeyFile": ssh_public_key_file,
         },
         "secretMaterial": {
-            "pullSecret": pull_secret_value if pull_secret_value else read_optional_file(pull_secret_file),
-            "sshPublicKey": ssh_public_key_value if ssh_public_key_value else read_optional_file(ssh_public_key_file),
+            "pullSecret": pull_secret_material,
+            "sshPublicKey": ssh_public_key_material,
         },
     }
     if pool:
