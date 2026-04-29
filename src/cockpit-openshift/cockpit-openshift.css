@@ -1153,6 +1153,10 @@ body.is-resizing-yaml * {
 }
 
 .log-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     padding: 16px 16px 0 16px;
 }
 

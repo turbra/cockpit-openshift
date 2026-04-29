@@ -1854,6 +1854,19 @@ def handle_status() -> int:
     )
 
 
+def handle_log() -> int:
+    if not LOG_FILE.exists():
+        return json_response({"ok": False, "errors": ["Install log is not available"]}, exit_code=0)
+    return json_response(
+        {
+            "ok": True,
+            "name": "install.log",
+            "contentType": "text/plain",
+            "content": LOG_FILE.read_text(encoding="utf-8", errors="replace"),
+        }
+    )
+
+
 def handle_cancel() -> int:
     state = load_state()
     unit_name = state.get("unitName", "")
@@ -1945,6 +1958,7 @@ def main() -> int:
     subparsers.add_parser("options")
     subparsers.add_parser("clusters")
     subparsers.add_parser("status")
+    subparsers.add_parser("log")
     subparsers.add_parser("cancel")
     destroy = subparsers.add_parser("destroy")
     destroy.add_argument("--cluster-id", required=True)
@@ -1965,6 +1979,8 @@ def main() -> int:
             return handle_run_job(args.mode, args.unit_name, args.cluster_id)
         if args.command == "status":
             return handle_status()
+        if args.command == "log":
+            return handle_log()
         if args.command == "cancel":
             return handle_cancel()
         if args.command == "destroy":
