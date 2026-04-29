@@ -3,6 +3,8 @@
 /* global cockpit */
 
 var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
+var QUICK_COMMAND_TIMEOUT_MS = 30000;
+var HEAVY_COMMAND_TIMEOUT_MS = 120000;
 var refs = {};
 var state = {
     items: [],
@@ -12,18 +14,86 @@ var state = {
     openMenuClusterId: "",
     pendingDestroyClusterId: "",
     pageAlert: null,
+    loadingCount: 0,
+    loadingMessage: "",
     page: 1,
     pageSize: 10,
     lastStatus: null
 };
 
-function backendCommand(command, extraArgs) {
+function backendCommandTimeout(command) {
+    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy"
+        ? HEAVY_COMMAND_TIMEOUT_MS
+        : QUICK_COMMAND_TIMEOUT_MS;
+}
+
+function loadingMessageFor(command) {
+    if (command === "clusters") {
+        return "Loading cluster inventory...";
+    }
+    if (command === "destroy") {
+        return "Starting destroy...";
+    }
+    return "Contacting backend...";
+}
+
+function beginLoading(command, options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount += 1;
+    state.loadingMessage = loadingMessageFor(command);
+    if (refs.refresh) {
+        render();
+    }
+}
+
+function endLoading(options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount = Math.max(0, state.loadingCount - 1);
+    if (state.loadingCount === 0) {
+        state.loadingMessage = "";
+    }
+    if (refs.refresh) {
+        render();
+    }
+}
+
+function backendCommand(command, extraArgs, options) {
     var args = ["python3", HELPER_PATH, command];
+    var proc;
+    var timeoutId;
+    var timedOut = false;
     if (extraArgs && extraArgs.length) {
         args = args.concat(extraArgs);
     }
-    return cockpit.spawn(args, { superuser: "require", err: "message" }).then(function (output) {
-        return JSON.parse(output);
+    beginLoading(command, options);
+    proc = cockpit.spawn(args, { superuser: "require", err: "message" });
+    return new Promise(function (resolve, reject) {
+        timeoutId = window.setTimeout(function () {
+            timedOut = true;
+            if (proc && typeof proc.close === "function") {
+                proc.close("terminated");
+            }
+            reject(new Error(command + " timed out after " + Math.round(backendCommandTimeout(command) / 1000) + " seconds."));
+        }, backendCommandTimeout(command));
+        proc.then(function (output) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            resolve(JSON.parse(output));
+        }).catch(function (error) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            reject(error);
+        });
+    }).finally(function () {
+        endLoading(options);
     });
 }
 
@@ -516,7 +586,9 @@ function render() {
     refs.tableShell.hidden = items.length === 0;
     refs.pagination.hidden = items.length === 0;
     refs.empty.textContent = "No clusters match the current filters.";
-    refs.resultCount.textContent = items.length + (items.length === 1 ? " cluster" : " clusters");
+    refs.resultCount.textContent = state.loadingMessage || (items.length + (items.length === 1 ? " cluster" : " clusters"));
+    refs.refresh.disabled = state.loadingCount > 0;
+    refs.refresh.classList.toggle("is-loading", state.loadingCount > 0);
 
     visibleItems.forEach(function (item) {
         refs.tableBody.appendChild(renderRow(item));
@@ -529,7 +601,7 @@ function render() {
 }
 
 function refreshInventory() {
-    Promise.all([backendCommand("clusters"), backendCommand("status")]).then(function (results) {
+    Promise.all([backendCommand("clusters"), backendCommand("status", [], { silentLoading: true })]).then(function (results) {
         state.lastStatus = results[1];
         state.items = inventoryItems(results[0], results[1]);
         render();

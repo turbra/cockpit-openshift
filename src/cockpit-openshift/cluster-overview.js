@@ -3,22 +3,100 @@
 /* global cockpit */
 
 var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
+var QUICK_COMMAND_TIMEOUT_MS = 30000;
+var HEAVY_COMMAND_TIMEOUT_MS = 120000;
 var refs = {};
 var state = {
     cluster: null,
     status: null,
     activeTab: "overview",
     pendingDestroy: false,
-    pageAlert: null
+    pageAlert: null,
+    loadingCount: 0,
+    loadingMessage: ""
 };
 
-function backendCommand(command, extraArgs) {
+function backendCommandTimeout(command) {
+    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy"
+        ? HEAVY_COMMAND_TIMEOUT_MS
+        : QUICK_COMMAND_TIMEOUT_MS;
+}
+
+function loadingMessageFor(command) {
+    if (command === "clusters") {
+        return "Refreshing cluster details...";
+    }
+    if (command === "destroy") {
+        return "Starting destroy...";
+    }
+    return "Contacting backend...";
+}
+
+function renderLoadingState() {
+    if (!refs.refresh) {
+        return;
+    }
+    refs.refresh.disabled = state.loadingCount > 0;
+    refs.refresh.textContent = state.loadingCount > 0 ? "Refreshing" : "Refresh";
+    refs.refresh.classList.toggle("is-loading", state.loadingCount > 0);
+    if (refs.actionsButton) {
+        refs.actionsButton.disabled = state.loadingCount > 0;
+    }
+}
+
+function beginLoading(command, options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount += 1;
+    state.loadingMessage = loadingMessageFor(command);
+    renderLoadingState();
+}
+
+function endLoading(options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount = Math.max(0, state.loadingCount - 1);
+    if (state.loadingCount === 0) {
+        state.loadingMessage = "";
+    }
+    renderLoadingState();
+}
+
+function backendCommand(command, extraArgs, options) {
     var args = ["python3", HELPER_PATH, command];
+    var proc;
+    var timeoutId;
+    var timedOut = false;
     if (extraArgs && extraArgs.length) {
         args = args.concat(extraArgs);
     }
-    return cockpit.spawn(args, { superuser: "require", err: "message" }).then(function (output) {
-        return JSON.parse(output);
+    beginLoading(command, options);
+    proc = cockpit.spawn(args, { superuser: "require", err: "message" });
+    return new Promise(function (resolve, reject) {
+        timeoutId = window.setTimeout(function () {
+            timedOut = true;
+            if (proc && typeof proc.close === "function") {
+                proc.close("terminated");
+            }
+            reject(new Error(command + " timed out after " + Math.round(backendCommandTimeout(command) / 1000) + " seconds."));
+        }, backendCommandTimeout(command));
+        proc.then(function (output) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            resolve(JSON.parse(output));
+        }).catch(function (error) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            reject(error);
+        });
+    }).finally(function () {
+        endLoading(options);
     });
 }
 
@@ -453,11 +531,12 @@ function renderOverview() {
 }
 
 function refreshPage() {
-    Promise.all([backendCommand("clusters"), backendCommand("status")]).then(function (results) {
+    Promise.all([backendCommand("clusters"), backendCommand("status", [], { silentLoading: true })]).then(function (results) {
         state.status = results[1];
         state.cluster = resolveCluster(results[0], results[1]);
         renderOverview();
         renderTabs();
+        renderLoadingState();
     }).catch(function (error) {
         refs.missing.hidden = false;
         refs.missing.textContent = String(error);

@@ -3,6 +3,8 @@
 /* global cockpit */
 
 var HELPER_PATH = "/usr/share/cockpit/cockpit-openshift/installer_backend.py";
+var QUICK_COMMAND_TIMEOUT_MS = 30000;
+var HEAVY_COMMAND_TIMEOUT_MS = 120000;
 
 var steps = [
     { id: 1, label: "Cluster details", description: "Define the cluster identity, installation baseline, host sizing, and registry access required before host discovery." },
@@ -42,6 +44,7 @@ var artifactPreviewTimer = null;
 var lastArtifactPreviewKey = "";
 var pageContext = "";
 var clusterIdFromUrl = "";
+var copyFeedbackTimer = null;
 var CLUSTER_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 var MAC_ADDRESS_PATTERN = /^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/;
 var errorMessages = {
@@ -152,6 +155,9 @@ function createInitialState() {
         clusters: [],
         backendErrors: [],
         pageAlert: null,
+        loadingCount: 0,
+        loadingMessage: "",
+        copyFeedback: "",
         pendingDestroyClusterId: "",
         pendingCancelDeployment: false,
         job: null,
@@ -167,13 +173,94 @@ function encodePayload(payload) {
     return window.btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
 }
 
-function backendCommand(command, extraArgs) {
+function backendCommandTimeout(command) {
+    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy"
+        ? HEAVY_COMMAND_TIMEOUT_MS
+        : QUICK_COMMAND_TIMEOUT_MS;
+}
+
+function loadingMessageFor(command) {
+    if (command === "options") {
+        return "Loading host options...";
+    }
+    if (command === "artifacts") {
+        return "Loading generated artifacts...";
+    }
+    if (command === "preflight") {
+        return "Running preflight checks...";
+    }
+    if (command === "start") {
+        return "Starting deployment...";
+    }
+    if (command === "cancel") {
+        return "Stopping deployment...";
+    }
+    if (command === "destroy") {
+        return "Starting destroy...";
+    }
+    if (command === "clusters") {
+        return "Loading cluster inventory...";
+    }
+    return "Contacting backend...";
+}
+
+function beginLoading(command, options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount += 1;
+    state.loadingMessage = loadingMessageFor(command);
+    if (refs.wizardWorkspace) {
+        render();
+    }
+}
+
+function endLoading(options) {
+    if (options && options.silentLoading) {
+        return;
+    }
+    state.loadingCount = Math.max(0, state.loadingCount - 1);
+    if (state.loadingCount === 0) {
+        state.loadingMessage = "";
+    }
+    if (refs.wizardWorkspace) {
+        render();
+    }
+}
+
+function backendCommand(command, extraArgs, options) {
     var args = ["python3", HELPER_PATH, command];
+    var proc;
+    var timeoutId;
+    var timedOut = false;
     if (extraArgs && extraArgs.length) {
         args = args.concat(extraArgs);
     }
-    return cockpit.spawn(args, { superuser: "require", err: "message" }).then(function (output) {
-        return JSON.parse(output);
+    beginLoading(command, options);
+    proc = cockpit.spawn(args, { superuser: "require", err: "message" });
+    return new Promise(function (resolve, reject) {
+        timeoutId = window.setTimeout(function () {
+            timedOut = true;
+            if (proc && typeof proc.close === "function") {
+                proc.close("terminated");
+            }
+            reject(new Error(command + " timed out after " + Math.round(backendCommandTimeout(command) / 1000) + " seconds."));
+        }, backendCommandTimeout(command));
+        proc.then(function (output) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            resolve(JSON.parse(output));
+        }).catch(function (error) {
+            if (timedOut) {
+                return;
+            }
+            window.clearTimeout(timeoutId);
+            reject(error);
+        });
+    }).finally(function () {
+        endLoading(options);
     });
 }
 
@@ -895,6 +982,7 @@ function renderArtifacts() {
         refs.artifactLineNumbers.innerHTML = "";
         refs.artifactCopyButton.disabled = true;
         refs.artifactDownloadButton.disabled = true;
+        refs.artifactCopyButton.textContent = "Copy";
         return;
     }
 
@@ -914,6 +1002,7 @@ function renderArtifacts() {
 
     renderArtifactCode(currentArtifact().content, currentArtifact().name);
     refs.artifactCopyButton.disabled = false;
+    refs.artifactCopyButton.textContent = state.copyFeedback || "Copy";
     refs.artifactDownloadButton.disabled = false;
 }
 
@@ -1598,9 +1687,10 @@ function renderFooter() {
     var showNext = !onFinalReview;
     var showDeploy = onFinalReview && !hasRunningJob && !jobSucceeded;
     var showRedeploy = onFinalReview && !!state.job;
+    var loading = state.loadingCount > 0;
 
     refs.backButton.hidden = state.currentStep === 1;
-    refs.backButton.disabled = hasRunningJob;
+    refs.backButton.disabled = hasRunningJob || loading;
     refs.nextButton.hidden = !showNext;
     refs.deployButton.hidden = !showDeploy;
     refs.redeployButton.hidden = !showRedeploy;
@@ -1611,12 +1701,28 @@ function renderFooter() {
     refs.stopButton.style.display = hasRunningDeployment ? "" : "none";
 
     refs.nextButton.textContent = "Next";
-    refs.nextButton.disabled = currentStepErrors().length > 0;
-    refs.deployButton.disabled = !onFinalReview || overallErrors().length > 0 || hasRunningJob || jobSucceeded;
-    refs.redeployButton.disabled = overallErrors().length > 0 || hasRunningJob;
-    refs.stopButton.disabled = !hasRunningDeployment;
+    refs.deployButton.textContent = loading && showDeploy ? "Starting..." : "Install cluster";
+    refs.redeployButton.textContent = loading && showRedeploy ? "Starting..." : "Clean rebuild";
+    refs.stopButton.textContent = loading && hasRunningDeployment ? "Stopping..." : "Stop";
+    refs.deployButton.classList.toggle("is-loading", loading && showDeploy);
+    refs.redeployButton.classList.toggle("is-loading", loading && showRedeploy);
+    refs.stopButton.classList.toggle("is-loading", loading && hasRunningDeployment);
+    refs.nextButton.disabled = currentStepErrors().length > 0 || loading;
+    refs.deployButton.disabled = !onFinalReview || overallErrors().length > 0 || hasRunningJob || jobSucceeded || loading;
+    refs.redeployButton.disabled = overallErrors().length > 0 || hasRunningJob || loading;
+    refs.stopButton.disabled = !hasRunningDeployment || loading;
     refs.cancelButton.textContent = "Cancel";
-    refs.cancelButton.disabled = hasRunningJob;
+    refs.cancelButton.disabled = hasRunningJob || loading;
+    refs.wizardLoadingStatus.innerHTML = "";
+    if (state.loadingMessage) {
+        var spinner = document.createElement("span");
+        var label = document.createElement("span");
+        spinner.className = "button-spinner";
+        spinner.setAttribute("aria-hidden", "true");
+        label.textContent = state.loadingMessage;
+        refs.wizardLoadingStatus.appendChild(spinner);
+        refs.wizardLoadingStatus.appendChild(label);
+    }
 }
 
 function renderYamlPane() {
@@ -1784,7 +1890,7 @@ function schedulePoll() {
 }
 
 function refreshStatus() {
-    backendCommand("status").then(function (status) {
+    backendCommand("status", [], { silentLoading: true }).then(function (status) {
         setJobFromStatus(status);
         if (status.running) {
             state.wizardOpen = true;
@@ -1803,7 +1909,7 @@ function refreshStatus() {
             loadArtifacts("current");
         }
 
-        loadClusters().then(function () {
+        loadClusters(true).then(function () {
             render();
             schedulePoll();
         }).catch(function () {
@@ -1879,7 +1985,7 @@ function loadArtifactsInternal(mode, silent, key) {
     var args = mode === "current"
         ? ["--current"]
         : ["--payload-b64", encodePayload(payload())];
-    return backendCommand("artifacts", args).then(function (result) {
+    return backendCommand("artifacts", args, { silentLoading: silent }).then(function (result) {
         state.artifacts = result.artifacts || [];
         if (!state.currentArtifactName || !state.artifacts.some(function (artifact) { return artifact.name === state.currentArtifactName; })) {
             state.currentArtifactName = state.artifacts.length ? state.artifacts[0].name : "";
@@ -1900,8 +2006,8 @@ function loadArtifactsInternal(mode, silent, key) {
     });
 }
 
-function loadClusters() {
-    return backendCommand("clusters").then(function (result) {
+function loadClusters(silent) {
+    return backendCommand("clusters", [], { silentLoading: !!silent }).then(function (result) {
         state.clusters = result.clusters || [];
         if (
             clusterIdFromUrl &&
@@ -2072,7 +2178,20 @@ function copyCurrentArtifact() {
     if (!artifact) {
         return;
     }
-    navigator.clipboard.writeText(artifact.content).catch(function () {});
+    navigator.clipboard.writeText(artifact.content).then(function () {
+        state.copyFeedback = "Copied!";
+        renderArtifacts();
+        if (copyFeedbackTimer) {
+            window.clearTimeout(copyFeedbackTimer);
+        }
+        copyFeedbackTimer = window.setTimeout(function () {
+            state.copyFeedback = "";
+            renderArtifacts();
+        }, 2000);
+    }).catch(function (error) {
+        state.copyFeedback = "";
+        showPageAlert(String(error), "danger", "Copy failed");
+    });
 }
 
 function downloadCurrentArtifact() {
@@ -2349,6 +2468,7 @@ function cacheRefs() {
     refs.redeployButton = document.getElementById("redeploy-button");
     refs.stopButton = document.getElementById("stop-button");
     refs.cancelButton = document.getElementById("cancel-button");
+    refs.wizardLoadingStatus = document.getElementById("wizard-loading-status");
 }
 
 document.addEventListener("DOMContentLoaded", function () {
