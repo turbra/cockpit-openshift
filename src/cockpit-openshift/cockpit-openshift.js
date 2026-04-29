@@ -151,6 +151,9 @@ function createInitialState() {
         currentArtifactName: "",
         clusters: [],
         backendErrors: [],
+        pageAlert: null,
+        pendingDestroyClusterId: "",
+        pendingCancelDeployment: false,
         job: null,
         showKubeadminPassword: false
     };
@@ -1059,7 +1062,7 @@ function renderClusterCard(item, container) {
         destroyButton.textContent = "Destroy";
         destroyButton.disabled = state.job && state.job.running;
         destroyButton.addEventListener("click", function () {
-            destroyCluster(item.cluster.clusterId);
+            requestDestroyCluster(item.cluster.clusterId);
         });
         actions.appendChild(destroyButton);
     }
@@ -1511,6 +1514,81 @@ function renderPostInstall() {
     refs.postInstallNodesCommand.textContent = "oc get nodes";
 }
 
+function requestCancelDeployment() {
+    state.pendingCancelDeployment = true;
+    state.pendingDestroyClusterId = "";
+    render();
+}
+
+function cancelPendingConfirmation() {
+    state.pendingCancelDeployment = false;
+    state.pendingDestroyClusterId = "";
+    render();
+}
+
+function requestDestroyCluster(clusterId) {
+    state.pendingDestroyClusterId = clusterId;
+    state.pendingCancelDeployment = false;
+    render();
+}
+
+function renderConfirmation() {
+    var card;
+    var copy;
+    var title;
+    var body;
+    var actions;
+    var confirmButton;
+    var cancelButton;
+    var isCancel = state.pendingCancelDeployment;
+    var isDestroy = !!state.pendingDestroyClusterId;
+
+    refs.confirmationRoot.innerHTML = "";
+    if (!isCancel && !isDestroy) {
+        return;
+    }
+
+    card = document.createElement("div");
+    copy = document.createElement("div");
+    title = document.createElement("div");
+    body = document.createElement("div");
+    actions = document.createElement("div");
+    confirmButton = document.createElement("button");
+    cancelButton = document.createElement("button");
+
+    card.className = "confirmation-card confirmation-card--danger";
+    title.className = "confirmation-card__title";
+    body.className = "confirmation-card__body";
+    actions.className = "confirmation-card__actions";
+
+    if (isCancel) {
+        title.textContent = "Stop the running deployment?";
+        body.textContent = "The running installer job will be stopped. You can start another deployment after the backend reports idle.";
+        confirmButton.textContent = "Stop deployment";
+        confirmButton.addEventListener("click", cancelDeployment);
+    } else {
+        title.textContent = "Destroy cluster " + state.pendingDestroyClusterId + "?";
+        body.textContent = "This will delete local VMs, disks, and generated install state for the cluster.";
+        confirmButton.textContent = "Destroy";
+        confirmButton.addEventListener("click", confirmDestroyCluster);
+    }
+
+    confirmButton.type = "button";
+    confirmButton.className = "action-button action-button--danger";
+    cancelButton.type = "button";
+    cancelButton.className = "action-button action-button--secondary";
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", cancelPendingConfirmation);
+
+    copy.appendChild(title);
+    copy.appendChild(body);
+    actions.appendChild(confirmButton);
+    actions.appendChild(cancelButton);
+    card.appendChild(copy);
+    card.appendChild(actions);
+    refs.confirmationRoot.appendChild(card);
+}
+
 function renderFooter() {
     var onFinalReview = state.currentStep === 7;
     var hasRunningJob = state.job && state.job.running;
@@ -1607,11 +1685,67 @@ function render() {
     renderValidationAlert();
     renderJob();
     renderPostInstall();
+    renderPageAlert();
+    renderConfirmation();
     renderFooter();
 }
 
 function clearBackendErrors() {
     state.backendErrors = [];
+}
+
+function showPageAlert(message, type, title) {
+    state.pageAlert = {
+        title: title || (type === "danger" ? "Action failed" : "Notice"),
+        message: message,
+        type: type || "info"
+    };
+    render();
+}
+
+function clearPageAlert() {
+    state.pageAlert = null;
+    render();
+}
+
+function renderPageAlert() {
+    var alert;
+    var copy;
+    var title;
+    var body;
+    var close;
+
+    if (!refs.pageAlertRoot) {
+        return;
+    }
+    refs.pageAlertRoot.innerHTML = "";
+    if (!state.pageAlert) {
+        return;
+    }
+
+    alert = document.createElement("div");
+    copy = document.createElement("div");
+    title = document.createElement("div");
+    body = document.createElement("div");
+    close = document.createElement("button");
+
+    alert.className = "page-alert page-alert--" + state.pageAlert.type;
+    alert.setAttribute("role", state.pageAlert.type === "danger" ? "alert" : "status");
+    title.className = "page-alert__title";
+    title.textContent = state.pageAlert.title;
+    body.className = "page-alert__body";
+    body.textContent = state.pageAlert.message;
+    close.type = "button";
+    close.className = "page-alert__close";
+    close.setAttribute("aria-label", "Dismiss alert");
+    close.textContent = "x";
+    close.addEventListener("click", clearPageAlert);
+
+    copy.appendChild(title);
+    copy.appendChild(body);
+    alert.appendChild(copy);
+    alert.appendChild(close);
+    refs.pageAlertRoot.appendChild(alert);
 }
 
 function setJobFromStatus(status) {
@@ -1853,6 +1987,8 @@ function startDeployment(mode) {
 }
 
 function cancelDeployment() {
+    state.pendingCancelDeployment = false;
+    render();
     backendCommand("cancel").then(function () {
         refreshStatus();
     }).catch(function (error) {
@@ -1861,10 +1997,13 @@ function cancelDeployment() {
     });
 }
 
-function destroyCluster(clusterId) {
-    if (!window.confirm("Destroy cluster " + clusterId + "?")) {
+function confirmDestroyCluster() {
+    var clusterId = state.pendingDestroyClusterId;
+    if (!clusterId) {
         return;
     }
+    state.pendingDestroyClusterId = "";
+    render();
     backendCommand("destroy", ["--cluster-id", clusterId]).then(function (result) {
         if (!result.ok) {
             state.backendErrors = result.errors || ["Cluster destroy failed"];
@@ -2070,7 +2209,7 @@ function bindEvents() {
     refs.nextButton.addEventListener("click", goNext);
     refs.deployButton.addEventListener("click", function () { startDeployment("deploy"); });
     refs.redeployButton.addEventListener("click", function () { startDeployment("redeploy"); });
-    refs.stopButton.addEventListener("click", cancelDeployment);
+    refs.stopButton.addEventListener("click", requestCancelDeployment);
     refs.cancelButton.addEventListener("click", resetState);
     refs.reviewYamlToggle.addEventListener("change", function (event) {
         state.yamlMode = event.target.checked;
@@ -2197,6 +2336,8 @@ function cacheRefs() {
     refs.jobLog = document.getElementById("job-log");
     refs.validationAlert = document.getElementById("validation-alert");
     refs.validationAlertBody = document.getElementById("validation-alert-body");
+    refs.pageAlertRoot = document.getElementById("page-alert");
+    refs.confirmationRoot = document.getElementById("wizard-confirmation-root");
     refs.postInstallPanel = document.getElementById("post-install-panel");
     refs.postInstallKubeconfig = document.getElementById("post-install-kubeconfig");
     refs.postInstallKubeconfigCommand = document.getElementById("post-install-kubeconfig-command");
