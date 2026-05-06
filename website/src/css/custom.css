@@ -37,7 +37,12 @@ html[data-theme='dark'] {
   box-shadow: none;
 }
 
+.navbar__logo {
+  width: 32px;
+}
+
 .navbar__logo img {
+  object-fit: contain;
   border-radius: 3px;
 }
 

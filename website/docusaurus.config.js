@@ -7,6 +7,7 @@ const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 const config = {
   title: 'Cockpit OpenShift',
   tagline: 'Cockpit-hosted local OpenShift installer for one KVM/libvirt host.',
+  favicon: 'img/logo.svg',
 
   url: 'https://turbra.github.io',
   baseUrl: '/cockpit-openshift/',
@@ -63,6 +64,10 @@ const config = {
       },
       navbar: {
         title: 'Cockpit OpenShift',
+        logo: {
+          alt: 'Cockpit OpenShift',
+          src: 'img/logo.svg',
+        },
         items: [
           {to: '/', label: 'Docs', position: 'left'},
           {to: '/getting-started/install/', label: 'Getting Started', position: 'left'},
