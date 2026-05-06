@@ -4,6 +4,7 @@
 KVM/libvirt host.
 
 [![License: GPL-3.0](https://img.shields.io/github/license/turbra/cockpit-openshift)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://turbra.github.io/cockpit-openshift/)
 ![OpenShift 4.21.7](https://img.shields.io/badge/OpenShift-4.21.7-red)
 ![Cockpit](https://img.shields.io/badge/Cockpit-plugin-blue)
 ![KVM/libvirt](https://img.shields.io/badge/KVM-libvirt-blue)
@@ -20,6 +21,8 @@ KVM/libvirt host.
 
 ## Start Here
 
+- read the docs site:
+  [Cockpit OpenShift docs](https://turbra.github.io/cockpit-openshift/)
 - install the plugin from source:
   [commands](#from-source)
 - review host prerequisites:
@@ -153,5 +156,7 @@ sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-1.0.0-1.el10.noarch
   - local RPM build entrypoint
 - `cockpit-openshift.spec`
   - RPM packaging metadata
+- `website/`
+  - Docusaurus documentation site and GitHub Pages source
 - `README.md`
   - operator-facing usage and install notes
