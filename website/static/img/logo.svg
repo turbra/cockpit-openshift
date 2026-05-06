@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+  <title id="title">Cockpit OpenShift</title>
+  <rect width="48" height="48" rx="8" fill="#ee0000"/>
+  <path fill="#fff" d="M12 15h24v4H12zm0 7h18v4H12zm0 7h24v4H12z"/>
+</svg>
