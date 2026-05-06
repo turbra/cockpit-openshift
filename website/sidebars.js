@@ -24,6 +24,18 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Examples',
+      collapsed: false,
+      items: [
+        'examples/index',
+        'examples/sno-local-install',
+        'examples/compact-local-install',
+        'examples/review-generated-artifacts',
+        'examples/rebuild-or-destroy',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Workflows',
       collapsed: false,
       items: [
@@ -48,6 +60,8 @@ const sidebars = {
       collapsed: false,
       items: [
         'project/documentation-map',
+        'project/development',
+        'project/build-validation',
       ],
     },
   ],

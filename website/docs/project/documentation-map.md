@@ -22,7 +22,7 @@ which page carries the workflow or reference detail.
 ### I need to know whether this plugin is the right tool
 
 1. Read [Capabilities](../concepts/capabilities.md).
-2. Return to [Docs Home](../index.md) if you need the broader operating model
+2. Return to [Docs Home](../index.mdx) if you need the broader operating model
    and screenshots.
 
 ### I need the operator flow for bringing up a cluster locally

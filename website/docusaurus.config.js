@@ -15,6 +15,7 @@ const config = {
   trailingSlash: true,
 
   onBrokenLinks: 'throw',
+  onBrokenAnchors: 'warn',
   markdown: {
     hooks: {
       onBrokenMarkdownLinks: 'throw',
@@ -48,12 +49,24 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       image: 'img/dashboard-v2.png',
+      metadata: [
+        {
+          name: 'description',
+          content:
+            'Documentation for Cockpit OpenShift, a Cockpit-hosted local OpenShift installer for one KVM/libvirt host.',
+        },
+      ],
+      colorMode: {
+        defaultMode: 'light',
+        disableSwitch: false,
+        respectPrefersColorScheme: true,
+      },
       navbar: {
         title: 'Cockpit OpenShift',
         items: [
           {to: '/', label: 'Docs', position: 'left'},
-          {to: '/getting-started/install', label: 'Install', position: 'left'},
-          {to: '/workflows/practical-use-cases', label: 'Workflows', position: 'left'},
+          {to: '/getting-started/install/', label: 'Getting Started', position: 'left'},
+          {to: '/examples/', label: 'Examples', position: 'left'},
           {to: '/reference/', label: 'Reference', position: 'left'},
           {
             href: 'https://github.com/turbra/cockpit-openshift',
@@ -68,9 +81,11 @@ const config = {
           {
             title: 'Docs',
             items: [
-              {label: 'Getting Started', to: '/getting-started/install'},
-              {label: 'Capabilities', to: '/concepts/capabilities'},
+              {label: 'Getting Started', to: '/getting-started/install/'},
+              {label: 'Examples', to: '/examples/'},
+              {label: 'Capabilities', to: '/concepts/capabilities/'},
               {label: 'Reference', to: '/reference/'},
+              {label: 'Build Validation', to: '/project/build-validation/'},
             ],
           },
           {
