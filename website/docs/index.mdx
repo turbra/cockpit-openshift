@@ -23,30 +23,6 @@ inventory in one local operator surface.
   <img alt="RHEL 10" src="https://img.shields.io/badge/RHEL-10-red?style=flat-square" />
 </div>
 
-:::important
-The validated deployment path today is `x86_64`, static node networking, SNO
-with one control-plane node, compact with three control-plane nodes, and
-directory-backed or logical libvirt storage pools.
-:::
-
-:::note
-DHCP is modeled in the UI, but it is not yet validated. Treat static node
-networking as the supported path until DHCP is proven end to end.
-:::
-
-## Operator Screens
-
-<div className="screenshot-grid">
-  <figure>
-    <img src={require('./assets/dashboard-v2.png').default} alt="Cockpit OpenShift install workflow" />
-    <figcaption>The create flow keeps cluster identity, networking, generated YAML, and deployment review in one workspace.</figcaption>
-  </figure>
-  <figure>
-    <img src={require('./assets/dashboard-fleet-v2.png').default} alt="Cockpit OpenShift fleet view" />
-    <figcaption>The fleet view keeps cluster inventory, cluster type, version, provider, and action routing visible after deployment.</figcaption>
-  </figure>
-</div>
-
 ## Quick Start
 
 <Tabs>
@@ -90,6 +66,44 @@ Open `https://<host>:9090` and navigate to `OpenShift`.
 
   </TabItem>
 </Tabs>
+
+## Current Support
+
+The validated path is intentionally narrow. Use the table to check whether the
+current workflow matches the host and topology you plan to run.
+
+| Area | Current path |
+| --- | --- |
+| Architecture | `x86_64` |
+| Networking | static node networking |
+| Topologies | SNO with one control-plane node, compact with three control-plane nodes |
+| Storage pools | directory-backed and logical libvirt storage pools |
+
+DHCP is modeled in the UI, but it is not yet validated. Treat static node
+networking as the supported path until DHCP is proven end to end.
+
+## Install Model
+
+Cockpit OpenShift is installed on the KVM/libvirt host that will run the local
+OpenShift workflow. The backend owns installer downloads, generated artifacts,
+libvirt VM creation, status tracking, and cluster inventory under
+`/var/lib/cockpit-openshift/`.
+
+The operator provides the pull secret, SSH public key, DNS, VIPs, and node IPs.
+The UI redacts the pull secret in generated YAML previews.
+
+## Operator Screens
+
+<div className="screenshot-grid">
+  <figure>
+    <img src={require('./assets/dashboard-v2.png').default} alt="Cockpit OpenShift install workflow" />
+    <figcaption>The create flow keeps cluster identity, networking, generated YAML, and deployment review in one workspace.</figcaption>
+  </figure>
+  <figure>
+    <img src={require('./assets/dashboard-fleet-v2.png').default} alt="Cockpit OpenShift fleet view" />
+    <figcaption>The fleet view keeps cluster inventory, cluster type, version, provider, and action routing visible after deployment.</figcaption>
+  </figure>
+</div>
 
 ## First Workflow
 
