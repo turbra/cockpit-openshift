@@ -1,12 +1,17 @@
 ---
 title: Install
-description: Install Cockpit OpenShift from source or from a locally built RPM.
+description: Install Cockpit OpenShift from a locally built RPM or from source.
 ---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Install
 
 Install Cockpit OpenShift on the KVM/libvirt host that will run the local
-OpenShift deployment workflow.
+OpenShift deployment workflow. Use the RPM path when you want a package-managed
+install. Use the source path when you are developing or testing local plugin
+changes.
 
 ## Prerequisites
 
@@ -21,7 +26,24 @@ OpenShift deployment workflow.
 Preinstalled `oc` and `openshift-install` binaries are not required. The backend
 downloads and pins its own copies under `/var/lib/cockpit-openshift/`.
 
-## From Source
+## Install Methods
+
+<Tabs>
+  <TabItem value="rpm" label="RPM package" default>
+
+Build the RPM from the project directory and install the generated package:
+
+```bash
+sudo dnf install -y rpm-build
+cd /path/to/cockpit-openshift
+./build-rpm.sh
+sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-0.1.0-1.el10.noarch.rpm
+```
+
+The exact RPM filename depends on the build host distribution suffix.
+
+  </TabItem>
+  <TabItem value="source" label="Source install">
 
 Run these commands from the repository root:
 
@@ -38,15 +60,8 @@ sudo install -m 0644 src/cockpit-openshift/cluster-overview.js /usr/share/cockpi
 sudo install -m 0755 src/cockpit-openshift/installer_backend.py /usr/share/cockpit/cockpit-openshift/
 ```
 
-Start Cockpit if it is not already running:
-
-```bash
-sudo systemctl enable --now cockpit.socket
-```
-
-Open `https://<host>:9090` and navigate to `OpenShift`.
-
-## Build The RPM
+  </TabItem>
+  <TabItem value="build" label="Build only">
 
 Install the packaging tool once on the build host:
 
@@ -65,19 +80,21 @@ Build output:
 
 ```text
 rpmbuild/RPMS/noarch/cockpit-openshift-*.noarch.rpm
+rpmbuild/SRPMS/cockpit-openshift-*.src.rpm
 ```
 
-## From RPM
+  </TabItem>
+</Tabs>
 
-Install the built package from the project directory:
+## Open The Plugin
+
+Start Cockpit if it is not already running:
 
 ```bash
-sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-0.1.0-1.el10.noarch.rpm
+sudo systemctl enable --now cockpit.socket
 ```
 
-The exact dist suffix depends on the build host.
-
-## Plugin Entry
+Open `https://<host>:9090` and navigate to `OpenShift`.
 
 Cockpit discovers the plugin on page load. If the plugin files are installed
 under `/usr/share/cockpit/cockpit-openshift/`, the Cockpit navigation exposes it

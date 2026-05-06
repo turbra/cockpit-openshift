@@ -1,0 +1,185 @@
+---
+title: Cockpit OpenShift
+description: Cockpit-hosted local OpenShift installer for one KVM/libvirt host.
+slug: /
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import Link from '@docusaurus/Link';
+
+# Cockpit OpenShift
+
+`cockpit-openshift` is a Cockpit plugin for guided OpenShift SNO and compact
+cluster deployment on one KVM/libvirt host. The plugin keeps host inputs,
+generated installer artifacts, VM plans, deployment status, and post-install
+inventory in one local operator surface.
+
+<div className="badge-row">
+  <a href="https://github.com/turbra/cockpit-openshift/blob/main/LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/turbra/cockpit-openshift?style=flat-square" /></a>
+  <img alt="OpenShift 4.21.7" src="https://img.shields.io/badge/OpenShift-4.21.7-red?style=flat-square" />
+  <img alt="Cockpit plugin" src="https://img.shields.io/badge/Cockpit-plugin-blue?style=flat-square" />
+  <img alt="KVM and libvirt" src="https://img.shields.io/badge/KVM-libvirt-blue?style=flat-square" />
+  <img alt="RHEL 10" src="https://img.shields.io/badge/RHEL-10-red?style=flat-square" />
+</div>
+
+:::important
+The validated deployment path today is `x86_64`, static node networking, SNO
+with one control-plane node, compact with three control-plane nodes, and
+directory-backed or logical libvirt storage pools.
+:::
+
+:::note
+DHCP is modeled in the UI, but it is not yet validated. Treat static node
+networking as the supported path until DHCP is proven end to end.
+:::
+
+## Operator Screens
+
+<div className="screenshot-grid">
+  <figure>
+    <img src={require('./assets/dashboard-v2.png').default} alt="Cockpit OpenShift install workflow" />
+    <figcaption>The create flow keeps cluster identity, networking, generated YAML, and deployment review in one workspace.</figcaption>
+  </figure>
+  <figure>
+    <img src={require('./assets/dashboard-fleet-v2.png').default} alt="Cockpit OpenShift fleet view" />
+    <figcaption>The fleet view keeps cluster inventory, cluster type, version, provider, and action routing visible after deployment.</figcaption>
+  </figure>
+</div>
+
+## Quick Start
+
+<Tabs>
+  <TabItem value="rpm" label="RPM install" default>
+
+```bash
+sudo dnf install -y rpm-build
+cd /path/to/cockpit-openshift
+./build-rpm.sh
+sudo dnf install -y ./rpmbuild/RPMS/noarch/cockpit-openshift-0.1.0-1.el10.noarch.rpm
+```
+
+The exact RPM filename depends on the build host distribution suffix.
+
+  </TabItem>
+  <TabItem value="source" label="Source install">
+
+```bash
+sudo mkdir -p /usr/share/cockpit/cockpit-openshift
+sudo install -m 0644 src/cockpit-openshift/manifest.json /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/index.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/create.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/overview.html /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.css /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cockpit-openshift.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cluster-list.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0644 src/cockpit-openshift/cluster-overview.js /usr/share/cockpit/cockpit-openshift/
+sudo install -m 0755 src/cockpit-openshift/installer_backend.py /usr/share/cockpit/cockpit-openshift/
+```
+
+Use the source path when you are iterating on local plugin files.
+
+  </TabItem>
+  <TabItem value="open" label="Open Cockpit">
+
+```bash
+sudo systemctl enable --now cockpit.socket
+```
+
+Open `https://<host>:9090` and navigate to `OpenShift`.
+
+  </TabItem>
+</Tabs>
+
+## First Workflow
+
+<Tabs>
+  <TabItem value="sno" label="SNO" default>
+
+1. Choose the single-node topology.
+2. Provide cluster identity, pull secret, SSH key, DNS, API VIP, ingress VIP,
+   and static node networking.
+3. Review generated installer artifacts.
+4. Deploy from the final review step.
+
+  </TabItem>
+  <TabItem value="compact" label="Compact">
+
+1. Choose the three-control-plane topology.
+2. Confirm host sizing, libvirt storage, bridge, node IPs, and VIPs.
+3. Review the guest plan, discovery plan, static networking, and installer YAML.
+4. Deploy from the final review step.
+
+  </TabItem>
+  <TabItem value="review" label="Review only">
+
+1. Stay in the create flow until artifact review.
+2. Inspect `install-config.yaml`, `agent-config.yaml`, `static-network-configs.yaml`, and `virt-install-plan.txt`.
+3. Deploy only after DNS, VIPs, node IPs, and guest sizing match the intended host plan.
+
+  </TabItem>
+</Tabs>
+
+## Workflow Shape
+
+The workflow keeps host preparation, guided input, artifact review, deployment,
+and post-install inventory in one local operator surface.
+
+<div className="workflow-rail">
+  <section className="workflow-step">
+    <div className="workflow-node">01</div>
+    <h3>Prepare</h3>
+    <p>Confirm Cockpit, libvirt, storage, DNS, pull secret, SSH key, node IPs, and VIPs.</p>
+    <strong>Host and input model ready</strong>
+  </section>
+  <section className="workflow-step">
+    <div className="workflow-node">02</div>
+    <h3>Create</h3>
+    <p>Choose SNO or compact topology, then enter cluster identity and static networking.</p>
+    <strong>Cluster intent captured</strong>
+  </section>
+  <section className="workflow-step">
+    <div className="workflow-node">03</div>
+    <h3>Review</h3>
+    <p>Inspect installer YAML, guest plan, discovery plan, and the generated `virt-install` plan.</p>
+    <strong>Generated artifacts verified</strong>
+  </section>
+  <section className="workflow-step">
+    <div className="workflow-node">04</div>
+    <h3>Deploy</h3>
+    <p>Launch from Cockpit, track status, return to inventory, rebuild, or destroy.</p>
+    <strong>Cluster state tracked</strong>
+  </section>
+</div>
+
+## Explore
+
+<div className="doc-link-grid">
+  <Link className="doc-link-card" to="/getting-started/install/">
+    <strong>Getting Started</strong>
+    <span>Install the plugin, open Cockpit, and run the first local workflow.</span>
+  </Link>
+  <Link className="doc-link-card" to="/concepts/capabilities/">
+    <strong>Capabilities</strong>
+    <span>Check supported topology, networking, storage, and backend boundaries.</span>
+  </Link>
+  <Link className="doc-link-card" to="/examples/">
+    <strong>Examples</strong>
+    <span>Use practical checklists for SNO, compact, artifact review, and cleanup.</span>
+  </Link>
+  <Link className="doc-link-card" to="/reference/">
+    <strong>Reference</strong>
+    <span>Find install commands, packaging details, runtime files, and source layout.</span>
+  </Link>
+</div>
+
+## What The Plugin Covers
+
+- guided OpenShift SNO deployment
+- guided OpenShift compact deployment
+- self-contained local backend for installer artifacts, libvirt storage, and
+  domain creation
+- rendered `install-config.yaml`, `agent-config.yaml`, guest plan, and
+  `virt-install` plan review
+- deployment status, recent output, and deployed-cluster inventory
+- clean rebuild and destroy actions from the UI
