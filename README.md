@@ -17,7 +17,7 @@ KVM/libvirt host.
 - rendered `install-config.yaml`, `agent-config.yaml`, guest plan, and
   `virt-install` plan review
 - deployment status, recent output, and deployed-cluster inventory
-- clean rebuild and destroy actions from the UI
+- reprovision and destroy actions from the UI
 
 ## Start Here
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import datetime as dt
 import getpass
 import hashlib
@@ -44,6 +45,8 @@ WORK_ROOT = STATE_DIR / "work"
 LIBVIRT_MEDIA_DIR = Path("/var/lib/libvirt/images")
 HELPER_PATH = Path("/usr/share/cockpit/cockpit-openshift/installer_backend.py")
 CLUSTER_METADATA_FILE = "cluster-metadata.json"
+CLUSTER_REQUEST_FILE = "cluster-request.json"
+CLUSTER_SECRETS_DIR = "secrets"
 STATE_SCHEMA = "standalone-v1"
 
 SUPPORTED_ARCH = "x86_64"
@@ -175,6 +178,18 @@ def channel_group(version: str) -> str:
 
 def cluster_metadata_path(work_dir: Path) -> Path:
     return work_dir / CLUSTER_METADATA_FILE
+
+
+def cluster_request_path(work_dir: Path) -> Path:
+    return work_dir / CLUSTER_REQUEST_FILE
+
+
+def cluster_secret_paths(work_dir: Path) -> dict:
+    secrets_dir = work_dir / CLUSTER_SECRETS_DIR
+    return {
+        "pullSecretFile": str(secrets_dir / "pull-secret.json"),
+        "sshPublicKeyFile": str(secrets_dir / "id_ed25519.pub"),
+    }
 
 
 def cluster_metadata_view(request: dict) -> dict:
@@ -430,6 +445,14 @@ def split_cluster_id(cluster_id: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
+def cluster_id_from_request(request: dict) -> str:
+    cluster_name = request.get("clusterName")
+    base_domain = request.get("baseDomain")
+    if not cluster_name or not base_domain:
+        raise ValueError("Saved deployment request is missing cluster identity")
+    return f"{cluster_name}.{base_domain}"
+
+
 def derive_pool_map() -> dict[str, dict]:
     return {pool["name"]: pool for pool in query_storage_pools()}
 
@@ -495,6 +518,16 @@ def public_request_view(request: dict) -> dict:
     return result
 
 
+def stamp_runtime_request(request: dict) -> dict:
+    result = copy.deepcopy(request)
+    result["createdAt"] = current_timestamp()
+    result["owner"] = discover_owner()
+    result["provider"] = "Local libvirt / KVM"
+    result["region"] = "Local KVM host"
+    result["channelGroup"] = channel_group(result["openshiftRelease"])
+    return result
+
+
 def preview_request_from_runtime(request: dict) -> dict:
     result = dict(request)
     if "secretMaterial" not in result and "secretFiles" in result:
@@ -515,6 +548,61 @@ def secret_material(request: dict) -> tuple[str, str]:
         Path(request["secretFiles"]["pullSecretFile"]).read_text(encoding="utf-8").strip(),
         Path(request["secretFiles"]["sshPublicKeyFile"]).read_text(encoding="utf-8").strip(),
     )
+
+
+def persist_cluster_request(request: dict, paths: dict) -> None:
+    pull_secret, ssh_public_key = secret_material(request)
+    source_request = copy.deepcopy(request)
+    secret_files = cluster_secret_paths(paths["workDir"])
+
+    source_request.pop("secretMaterial", None)
+    source_request["secretFiles"] = secret_files
+
+    write_private_file(Path(secret_files["pullSecretFile"]), pull_secret.strip() + "\n")
+    write_private_file(Path(secret_files["sshPublicKeyFile"]), ssh_public_key.strip() + "\n")
+    write_private_file(cluster_request_path(paths["workDir"]), json.dumps(source_request, indent=2, sort_keys=True))
+
+
+def load_reprovision_source(cluster_id: str) -> dict:
+    work_dir = WORK_ROOT / cluster_id
+    source_path = cluster_request_path(work_dir)
+    if source_path.exists():
+        request = json.loads(source_path.read_text(encoding="utf-8"))
+        if cluster_id_from_request(request) != cluster_id:
+            raise ValueError(f"Saved deployment request does not match cluster {cluster_id}")
+        return request
+
+    if REQUEST_FILE.exists():
+        request = json.loads(REQUEST_FILE.read_text(encoding="utf-8"))
+        if cluster_id_from_request(request) == cluster_id:
+            return request
+
+    raise ValueError(
+        f"No saved deployment request is available for cluster {cluster_id}. "
+        "Reprovision requires a cluster created with a recorded Cockpit OpenShift request."
+    )
+
+
+def prepare_reprovision_request(source_request: dict) -> dict:
+    request = preview_request_from_runtime(copy.deepcopy(source_request))
+    storage_pool = request.get("storage", {}).get("storagePool", "")
+    if not storage_pool:
+        raise ValueError("Saved deployment request is missing storage pool")
+
+    storage = dict(request["storage"])
+    storage["pool"] = determine_pool(storage_pool)
+    request["storage"] = storage
+
+    bridges = query_bridges()
+    network = request.get("network", {})
+    bridge_name = network.get("bridgeName", "")
+    secondary_bridge_name = network.get("secondaryBridgeName", "")
+    if bridge_name and bridge_name not in bridges:
+        raise ValueError(f"Bridge interface {bridge_name} was not found on this host")
+    if secondary_bridge_name and secondary_bridge_name not in bridges:
+        raise ValueError(f"Secondary bridge {secondary_bridge_name} was not found on this host")
+
+    return stamp_runtime_request(request)
 
 
 def read_optional_file(path_str: str) -> str:
@@ -1661,32 +1749,13 @@ def handle_artifacts(payload_b64: str | None, current: bool) -> int:
     return json_response(render_artifact_bundle(request))
 
 
-def handle_start(payload_b64: str, mode: str) -> int:
-    try:
-        request, errors = validate_payload(parse_payload(payload_b64))
-    except ValueError as exc:
-        return json_response({"ok": False, "errors": [str(exc)]}, exit_code=0)
-
-    existing_state = load_state()
-    if job_running(existing_state):
-        return json_response({"ok": False, "errors": ["A deployment is already running"]})
-    if errors:
-        return json_response({"ok": False, "errors": errors})
-
-    clear_runtime_state()
-    ensure_runtime_dirs()
-    request["createdAt"] = current_timestamp()
-    request["owner"] = discover_owner()
-    request["provider"] = "Local libvirt / KVM"
-    request["region"] = "Local KVM host"
-    request["channelGroup"] = channel_group(request["openshiftRelease"])
-    request = materialize_secret_files(request)
+def launch_install_job(request: dict, mode: str, unit_prefix: str, description: str) -> int:
     paths = derive_request_paths(request)
     write_private_file(LOG_FILE, "")
     write_private_file(REQUEST_FILE, json.dumps(request, indent=2, sort_keys=True))
     write_private_file(cluster_metadata_path(paths["workDir"]), json.dumps(cluster_metadata_view(request), indent=2, sort_keys=True))
 
-    unit_name = f"cockpit-openshift-{dt.datetime.now():%Y%m%d%H%M%S}"
+    unit_name = f"{unit_prefix}-{dt.datetime.now():%Y%m%d%H%M%S}"
     state = record_request_summary(request, mode, unit_name)
     state["status"] = "starting"
     save_state(state)
@@ -1696,7 +1765,7 @@ def handle_start(payload_b64: str, mode: str) -> int:
         "--unit",
         unit_name,
         "--description",
-        "Cockpit OpenShift",
+        description,
         "python3",
         str(HELPER_PATH),
         "run-job",
@@ -1718,6 +1787,25 @@ def handle_start(payload_b64: str, mode: str) -> int:
     return json_response({"ok": True, "unitName": unit_name, "request": public_request_view(request)})
 
 
+def handle_start(payload_b64: str, mode: str) -> int:
+    try:
+        request, errors = validate_payload(parse_payload(payload_b64))
+    except ValueError as exc:
+        return json_response({"ok": False, "errors": [str(exc)]}, exit_code=0)
+
+    existing_state = load_state()
+    if job_running(existing_state):
+        return json_response({"ok": False, "errors": ["A deployment is already running"]})
+    if errors:
+        return json_response({"ok": False, "errors": errors})
+
+    clear_runtime_state()
+    ensure_runtime_dirs()
+    request = stamp_runtime_request(request)
+    request = materialize_secret_files(request)
+    return launch_install_job(request, mode, "cockpit-openshift", "Cockpit OpenShift")
+
+
 def run_install_job(mode: str, unit_name: str) -> int:
     request = json.loads(REQUEST_FILE.read_text(encoding="utf-8"))
     paths = derive_request_paths(request)
@@ -1729,9 +1817,11 @@ def run_install_job(mode: str, unit_name: str) -> int:
 
     rc = 0
     try:
-        if mode == "redeploy":
+        if mode in {"redeploy", "reprovision"}:
             cleanup_previous_install(request, paths)
 
+        persist_cluster_request(request, paths)
+        write_private_file(cluster_metadata_path(paths["workDir"]), json.dumps(cluster_metadata_view(request), indent=2, sort_keys=True))
         ensure_installer_binaries(request, paths)
         ensure_pool_active(pool)
         render_install_artifacts(request, nodes, paths)
@@ -1879,6 +1969,26 @@ def handle_cancel() -> int:
     return json_response({"ok": True, "unitName": unit_name})
 
 
+def handle_reprovision(cluster_id: str) -> int:
+    clusters = {cluster["clusterId"]: cluster for cluster in discover_clusters()}
+    if cluster_id not in clusters:
+        return json_response({"ok": False, "errors": [f"Cluster {cluster_id} was not found"]}, exit_code=0)
+
+    state = load_state()
+    if job_running(state):
+        return json_response({"ok": False, "errors": ["A deployment is already running"]}, exit_code=0)
+
+    try:
+        request = prepare_reprovision_request(load_reprovision_source(cluster_id))
+    except Exception as exc:
+        return json_response({"ok": False, "errors": [str(exc)]}, exit_code=0)
+
+    clear_runtime_state()
+    ensure_runtime_dirs()
+    request = materialize_secret_files(request)
+    return launch_install_job(request, "reprovision", "cockpit-openshift-reprovision", "Cockpit OpenShift Reprovision")
+
+
 def handle_destroy(cluster_id: str) -> int:
     clusters = {cluster["clusterId"]: cluster for cluster in discover_clusters()}
     if cluster_id not in clusters:
@@ -1951,7 +2061,7 @@ def main() -> int:
     start.add_argument("--mode", choices=["deploy", "redeploy"], required=True)
 
     run_job = subparsers.add_parser("run-job")
-    run_job.add_argument("--mode", choices=["deploy", "redeploy", "destroy"], required=True)
+    run_job.add_argument("--mode", choices=["deploy", "redeploy", "reprovision", "destroy"], required=True)
     run_job.add_argument("--unit-name", required=True)
     run_job.add_argument("--cluster-id")
 
@@ -1960,6 +2070,8 @@ def main() -> int:
     subparsers.add_parser("status")
     subparsers.add_parser("log")
     subparsers.add_parser("cancel")
+    reprovision = subparsers.add_parser("reprovision")
+    reprovision.add_argument("--cluster-id", required=True)
     destroy = subparsers.add_parser("destroy")
     destroy.add_argument("--cluster-id", required=True)
 
@@ -1983,6 +2095,8 @@ def main() -> int:
             return handle_log()
         if args.command == "cancel":
             return handle_cancel()
+        if args.command == "reprovision":
+            return handle_reprovision(args.cluster_id)
         if args.command == "destroy":
             return handle_destroy(args.cluster_id)
     except Exception as exc:  # pragma: no cover

@@ -15,7 +15,7 @@ not a generic multi-provider installer and it does not try to hide that boundary
 - owns the local installer runtime and downloaded binaries
 - shows generated installer inputs and plans before the destructive deployment step
 - keeps cluster inventory and cluster-specific actions in the same plugin
-- exposes rebuild and destroy actions without making the operator reconstruct
+- exposes reprovision and destroy actions without making the operator reconstruct
   the original shell steps
 
 ## Supported Path
