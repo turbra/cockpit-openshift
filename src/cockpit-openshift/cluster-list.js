@@ -13,6 +13,7 @@ var state = {
     selectedClusterId: "",
     openMenuClusterId: "",
     pendingDestroyClusterId: "",
+    pendingReprovisionClusterId: "",
     pageAlert: null,
     loadingCount: 0,
     loadingMessage: "",
@@ -22,7 +23,7 @@ var state = {
 };
 
 function backendCommandTimeout(command) {
-    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy"
+    return command === "artifacts" || command === "preflight" || command === "start" || command === "destroy" || command === "reprovision"
         ? HEAVY_COMMAND_TIMEOUT_MS
         : QUICK_COMMAND_TIMEOUT_MS;
 }
@@ -33,6 +34,9 @@ function loadingMessageFor(command) {
     }
     if (command === "destroy") {
         return "Starting destroy...";
+    }
+    if (command === "reprovision") {
+        return "Starting reprovision...";
     }
     return "Contacting backend...";
 }
@@ -278,11 +282,20 @@ function renderPageAlert() {
 
 function requestDestroyCluster(clusterId) {
     state.pendingDestroyClusterId = clusterId;
+    state.pendingReprovisionClusterId = "";
     state.openMenuClusterId = "";
     render();
 }
 
-function cancelDestroyCluster() {
+function requestReprovisionCluster(clusterId) {
+    state.pendingReprovisionClusterId = clusterId;
+    state.pendingDestroyClusterId = "";
+    state.openMenuClusterId = "";
+    render();
+}
+
+function cancelPendingClusterAction() {
+    state.pendingReprovisionClusterId = "";
     state.pendingDestroyClusterId = "";
     render();
 }
@@ -306,6 +319,24 @@ function confirmDestroyCluster() {
     });
 }
 
+function confirmReprovisionCluster() {
+    var clusterId = state.pendingReprovisionClusterId;
+    if (!clusterId) {
+        return;
+    }
+    state.pendingReprovisionClusterId = "";
+    render();
+    backendCommand("reprovision", ["--cluster-id", clusterId]).then(function (result) {
+        if (!result.ok) {
+            showPageAlert((result.errors || ["Cluster reprovision failed."]).join(" "), "danger", "Cluster reprovision failed");
+            return;
+        }
+        window.location.href = "create.html?clusterId=" + encodeURIComponent(clusterId);
+    }).catch(function (error) {
+        showPageAlert(String(error), "danger", "Cluster reprovision failed");
+    });
+}
+
 function renderConfirmation() {
     var card;
     var copy;
@@ -314,11 +345,15 @@ function renderConfirmation() {
     var actions;
     var confirmButton;
     var cancelButton;
+    var clusterId;
+    var isReprovision;
 
     refs.confirmationRoot.innerHTML = "";
-    if (!state.pendingDestroyClusterId) {
+    clusterId = state.pendingReprovisionClusterId || state.pendingDestroyClusterId;
+    if (!clusterId) {
         return;
     }
+    isReprovision = !!state.pendingReprovisionClusterId;
 
     card = document.createElement("div");
     copy = document.createElement("div");
@@ -330,19 +365,27 @@ function renderConfirmation() {
 
     card.className = "confirmation-card confirmation-card--danger";
     title.className = "confirmation-card__title";
-    title.textContent = "Destroy cluster " + state.pendingDestroyClusterId + "?";
     body.className = "confirmation-card__body";
-    body.textContent = "This will delete local VMs, disks, and generated install state for the cluster.";
     actions.className = "confirmation-card__actions";
 
     confirmButton.type = "button";
     confirmButton.className = "action-button action-button--danger";
-    confirmButton.textContent = "Destroy";
-    confirmButton.addEventListener("click", confirmDestroyCluster);
     cancelButton.type = "button";
     cancelButton.className = "action-button action-button--secondary";
     cancelButton.textContent = "Cancel";
-    cancelButton.addEventListener("click", cancelDestroyCluster);
+    cancelButton.addEventListener("click", cancelPendingClusterAction);
+
+    if (isReprovision) {
+        title.textContent = "Reprovision cluster " + clusterId + "?";
+        body.textContent = "This will destroy the existing cluster and recreate it from its saved configuration. Local VMs, disks, and generated install state will be replaced.";
+        confirmButton.textContent = "Reprovision";
+        confirmButton.addEventListener("click", confirmReprovisionCluster);
+    } else {
+        title.textContent = "Destroy cluster " + clusterId + "?";
+        body.textContent = "This will delete local VMs, disks, and generated install state for the cluster.";
+        confirmButton.textContent = "Destroy";
+        confirmButton.addEventListener("click", confirmDestroyCluster);
+    }
 
     copy.appendChild(title);
     copy.appendChild(body);
@@ -425,6 +468,9 @@ function renderRowMenuOverlay() {
             window.open(item.consoleUrl, "_blank", "noopener");
         }
     }, !item.consoleUrl);
+    addMenuItem("Reprovision", function () {
+        requestReprovisionCluster(item.clusterId);
+    }, item.synthetic || (state.lastStatus && state.lastStatus.running));
     addMenuItem("Destroy cluster", function () {
         requestDestroyCluster(item.clusterId);
     }, item.synthetic);

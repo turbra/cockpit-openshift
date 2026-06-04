@@ -1,21 +1,21 @@
 ---
-title: Rebuild Or Destroy
+title: Reprovision Or Destroy
 description: Use the same Cockpit plugin boundary for local cluster cleanup.
 ---
 
-# Rebuild Or Destroy
+# Reprovision Or Destroy
 
 Use the plugin for cleanup when the cluster was created by Cockpit OpenShift.
-That keeps create, rebuild, and destroy actions inside the same backend
+That keeps create, reprovision, and destroy actions inside the same backend
 boundary.
 
-## Rebuild
+## Reprovision
 
-Use rebuild when the local cluster should be recreated with the same operational
-context.
+Use reprovision when the local cluster should be destroyed and recreated from
+the saved cluster configuration.
 
 1. Open the cluster list or cluster overview.
-2. Choose the rebuild action.
+2. Choose the reprovision action.
 3. Confirm that the target cluster is the one you intend to replace.
 4. Let the backend run the cleanup and deployment path it owns.
 

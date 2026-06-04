@@ -1,6 +1,6 @@
 ---
 title: Practical Use Cases
-description: Operator workflows for local cluster bring-up, review, inventory, rebuild, and teardown.
+description: Operator workflows for local cluster bring-up, review, inventory, reprovision, and teardown.
 ---
 
 # Practical Use Cases
@@ -63,14 +63,15 @@ time, version, provider identity, and next actions.
 4. Use the overview details, notices, and actions instead of reconstructing
    state from libvirt manually.
 
-## Rebuild Or Destroy
+## Reprovision Or Destroy
 
-Local labs and proof-of-concept environments are rebuilt often. Use the same
-tool that created the cluster for cleanup.
+Local labs and proof-of-concept environments are often reprovisioned after
+destructive testing. Use the same tool that created the cluster for cleanup.
 
 1. Return to cluster inventory or cluster overview.
-2. Choose the destructive action from the plugin.
-3. Let the local backend handle the teardown path it already understands.
+2. Choose Reprovision to recreate the cluster from saved configuration, or
+   choose Destroy to remove it.
+3. Let the local backend handle the lifecycle path it already understands.
 
-Creation and cleanup stay in one operational boundary, reducing drift between
-the install path and the destroy path.
+Creation, reprovision, and cleanup stay in one operational boundary, reducing
+drift between the install path and the lifecycle actions.
